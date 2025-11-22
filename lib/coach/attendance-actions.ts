@@ -1,0 +1,356 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
+import { createAuditLog } from '@/lib/audit/actions';
+import { Database } from '@/types/database.types';
+
+type AttendanceLog = Database['public']['Tables']['attendance']['Row'];
+type AttendanceLogInsert = Database['public']['Tables']['attendance']['Insert'];
+type AttendanceLogUpdate = Database['public']['Tables']['attendance']['Update'];
+type AttendanceStatus = Database['public']['Tables']['attendance']['Row']['status'];
+
+interface AthleteWithAttendance {
+  id: string;
+  first_name: string;
+  last_name: string;
+  nickname: string | null;
+  attendance?: AttendanceLog;
+}
+
+/**
+ * Get attendance list for a training session
+ * Returns all athletes in the club with their attendance status
+ */
+export async function getSessionAttendance(sessionId: string): Promise<{
+  data?: AthleteWithAttendance[];
+  session?: any;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    // Get current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'ไม่ได้รับอนุญาต: กรุณาเข้าสู่ระบบ' };
+    }
+
+    // Get coach profile
+    const { data: coach, error: coachError } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (coachError || !coach) {
+      return { error: 'ไม่พบข้อมูลโค้ช' };
+    }
+
+    // Get session and verify it belongs to coach
+    const { data: session, error: sessionError } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError || !session) {
+      return { error: 'ไม่พบตารางฝึกซ้อม' };
+    }
+
+    // @ts-ignore
+    if (session.coach_id !== coach.id) {
+      return { error: 'ไม่ได้รับอนุญาต: คุณไม่สามารถดูตารางของโค้ชอื่นได้' };
+    }
+
+    // Get all athletes in the club
+    // @ts-ignore
+    const { data: athletes, error: athletesError } = await supabase
+      .from('athletes')
+      .select('id, first_name, last_name, nickname')
+      // @ts-ignore
+      .eq('club_id', coach.club_id)
+      .order('first_name', { ascending: true });
+
+    if (athletesError) {
+      console.error('Athletes query error:', athletesError);
+      return { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลนักกีฬา' };
+    }
+
+    // Get attendance logs for this session
+    const { data: attendanceLogs, error: logsError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('training_session_id', sessionId);
+
+    if (logsError) {
+      console.error('Attendance logs query error:', logsError);
+      return { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลการเข้าร่วม' };
+    }
+
+    // Combine athletes with their attendance
+    // @ts-ignore
+    const athletesWithAttendance: AthleteWithAttendance[] = athletes.map((athlete) => {
+      // @ts-ignore
+      const attendance = attendanceLogs?.find((log) => log.athlete_id === athlete.id);
+      return {
+        // @ts-ignore
+        ...athlete,
+        attendance,
+      };
+    });
+
+    return {
+      data: athletesWithAttendance,
+      session,
+    };
+  } catch (error) {
+    console.error('Unexpected error in getSessionAttendance:', error);
+    return { error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' };
+  }
+}
+
+/**
+ * Mark or update attendance for an athlete
+ */
+export async function markAttendance(data: {
+  sessionId: string;
+  athleteId: string;
+  status: AttendanceStatus;
+  notes?: string;
+}): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    // Get current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'ไม่ได้รับอนุญาต: กรุณาเข้าสู่ระบบ' };
+    }
+
+    // Get coach profile
+    const { data: coach, error: coachError } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (coachError || !coach) {
+      return { error: 'ไม่พบข้อมูลโค้ช' };
+    }
+
+    // Verify session belongs to coach
+    const { data: session, error: sessionError } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('id', data.sessionId)
+      .single();
+
+    if (sessionError || !session) {
+      return { error: 'ไม่พบตารางฝึกซ้อม' };
+    }
+
+    // @ts-ignore
+    if (session.coach_id !== coach.id) {
+      return { error: 'ไม่ได้รับอนุญาต: คุณไม่สามารถเช็คชื่อในตารางของโค้ชอื่นได้' };
+    }
+
+    // Verify athlete belongs to the same club
+    const { data: athlete, error: athleteError } = await supabase
+      .from('athletes')
+      .select('*')
+      .eq('id', data.athleteId)
+      .single();
+
+    if (athleteError || !athlete) {
+      return { error: 'ไม่พบข้อมูลนักกีฬา' };
+    }
+
+    // @ts-ignore
+    if (athlete.club_id !== coach.club_id) {
+      return { error: 'นักกีฬาไม่ได้อยู่ในสโมสรเดียวกัน' };
+    }
+
+    // Check if attendance already exists
+    const { data: existingAttendance, error: checkError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('training_session_id', data.sessionId)
+      .eq('athlete_id', data.athleteId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Check error:', checkError);
+      return { error: 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล' };
+    }
+
+    if (existingAttendance) {
+      // Update existing attendance
+      const updateData: AttendanceLogUpdate = {
+        status: data.status,
+        notes: data.notes || null,
+      };
+
+      // @ts-ignore - Supabase type inference issue
+      const { error: updateError } = await supabase
+        .from('attendance')
+        // @ts-ignore
+        .update(updateData)
+        // @ts-ignore
+        .eq('id', existingAttendance.id);
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        return { error: 'เกิดข้อผิดพลาดในการอัปเดตการเข้าร่วม' };
+      }
+
+      // Log audit event
+      await createAuditLog({
+        userId: user.id,
+        actionType: 'attendance.update',
+        entityType: 'attendance_log',
+        // @ts-ignore
+        entityId: existingAttendance.id,
+        // @ts-ignore
+        details: updateData,
+      });
+    } else {
+      // Create new attendance
+      const insertData: AttendanceLogInsert = {
+        training_session_id: data.sessionId,
+        athlete_id: data.athleteId,
+        status: data.status,
+        check_in_method: 'manual',
+        notes: data.notes || null,
+        check_in_time: data.status === 'present' ? new Date().toISOString() : null,
+      };
+
+      // @ts-ignore - Supabase type inference issue
+      const { data: newAttendance, error: insertError } = await supabase
+        .from('attendance')
+        // @ts-ignore
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        return { error: 'เกิดข้อผิดพลาดในการบันทึกการเข้าร่วม' };
+      }
+
+      // Log audit event
+      await createAuditLog({
+        userId: user.id,
+        actionType: 'attendance.create',
+        entityType: 'attendance_log',
+        // @ts-ignore
+        entityId: newAttendance.id,
+        details: insertData,
+      });
+    }
+
+    revalidatePath(`/dashboard/coach/attendance/${data.sessionId}`);
+    revalidatePath('/dashboard/coach/sessions');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error in markAttendance:', error);
+    return { error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' };
+  }
+}
+
+/**
+ * Update attendance for an athlete
+ */
+export async function updateAttendance(
+  attendanceId: string,
+  data: {
+    status?: AttendanceStatus;
+    notes?: string;
+  }
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    // Get current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'ไม่ได้รับอนุญาต: กรุณาเข้าสู่ระบบ' };
+    }
+
+    // Get coach profile
+    const { data: coach, error: coachError } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (coachError || !coach) {
+      return { error: 'ไม่พบข้อมูลโค้ช' };
+    }
+
+    // Get attendance and verify coach owns the session
+    const { data: attendance, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('*, training_sessions!inner(*)')
+      .eq('id', attendanceId)
+      .single();
+
+    if (attendanceError || !attendance) {
+      return { error: 'ไม่พบข้อมูลการเข้าร่วม' };
+    }
+
+    // @ts-ignore - TypeScript has issues with nested joins
+    if (attendance.training_sessions.coach_id !== coach.id) {
+      return { error: 'ไม่ได้รับอนุญาต: คุณไม่สามารถแก้ไขการเข้าร่วมในตารางของโค้ชอื่นได้' };
+    }
+
+    // Prepare update data
+    const updateData: AttendanceLogUpdate = {};
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.notes !== undefined) updateData.notes = data.notes || null;
+
+    // Update attendance
+    // @ts-ignore - Supabase type inference issue
+    const { error: updateError } = await supabase
+      .from('attendance')
+      // @ts-ignore
+      .update(updateData)
+      .eq('id', attendanceId);
+
+    if (updateError) {
+      console.error('Update error:', updateError);
+      return { error: 'เกิดข้อผิดพลาดในการอัปเดตการเข้าร่วม' };
+    }
+
+    // Log audit event
+    await createAuditLog({
+      userId: user.id,
+      actionType: 'attendance.update',
+      entityType: 'attendance_log',
+      entityId: attendanceId,
+      // @ts-ignore
+      details: updateData,
+    });
+
+    // @ts-ignore
+    revalidatePath(`/dashboard/coach/attendance/${attendance.training_session_id}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error in updateAttendance:', error);
+    return { error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' };
+  }
+}

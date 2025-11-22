@@ -1,0 +1,9 @@
+-- Verify training_sessions table schema
+SELECT 
+  column_name, 
+  data_type, 
+  is_nullable,
+  column_default
+FROM information_schema.columns
+WHERE table_name = 'training_sessions'
+ORDER BY ordinal_position;
