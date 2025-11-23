@@ -217,7 +217,7 @@ export function SimpleLoginForm() {
         <div className="mt-6 text-center text-base text-gray-600">
           ยังไม่มีบัญชี?{' '}
           <Link 
-            href="/register" 
+            href="/register-membership" 
             className="text-blue-600 hover:text-blue-700 active:text-blue-700 font-medium touch-manipulation transition-colors duration-200 hover:underline"
           >
             สมัครสมาชิก

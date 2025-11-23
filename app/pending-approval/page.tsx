@@ -95,6 +95,9 @@ export default async function PendingApprovalPage() {
                 <Link href="/dashboard/athlete/applications">
                   <Button variant="outline">ดูสถานะใบสมัคร</Button>
                 </Link>
+                <Link href="/logout">
+                  <Button variant="ghost">ออกจากระบบ</Button>
+                </Link>
               </div>
             </CardContent>
           </>
@@ -147,6 +150,9 @@ export default async function PendingApprovalPage() {
                 </Link>
                 <Link href="/dashboard/athlete/applications">
                   <Button variant="outline">ดูประวัติใบสมัคร</Button>
+                </Link>
+                <Link href="/logout">
+                  <Button variant="ghost">ออกจากระบบ</Button>
                 </Link>
               </div>
             </CardContent>
@@ -207,9 +213,12 @@ export default async function PendingApprovalPage() {
                 </ul>
               </div>
 
-              <div className="flex justify-center pt-4">
+              <div className="flex justify-center gap-4 pt-4">
                 <Link href="/register-membership">
                   <Button size="lg">สมัครสมาชิก</Button>
+                </Link>
+                <Link href="/logout">
+                  <Button size="lg" variant="ghost">ออกจากระบบ</Button>
                 </Link>
               </div>
             </CardContent>

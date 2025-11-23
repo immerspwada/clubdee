@@ -9,13 +9,13 @@ export function validateEmail(email: string): ValidationResult {
   const errors: string[] = [];
 
   if (!email) {
-    errors.push('Email is required');
+    errors.push('กรุณากรอกอีเมล');
     return { isValid: false, errors };
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    errors.push('Invalid email format');
+    errors.push('รูปแบบอีเมลไม่ถูกต้อง');
   }
 
   return {
@@ -29,28 +29,28 @@ export function validatePassword(password: string): ValidationResult {
   const { passwordRequirements } = authConfig;
 
   if (!password) {
-    errors.push('Password is required');
+    errors.push('กรุณากรอกรหัสผ่าน');
     return { isValid: false, errors };
   }
 
   if (password.length < passwordRequirements.minLength) {
-    errors.push(`Password must be at least ${passwordRequirements.minLength} characters`);
+    errors.push(`รหัสผ่านต้องมีอย่างน้อย ${passwordRequirements.minLength} ตัวอักษร`);
   }
 
   if (passwordRequirements.requireUppercase && !/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
+    errors.push('รหัสผ่านต้องมีตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว');
   }
 
   if (passwordRequirements.requireLowercase && !/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
+    errors.push('รหัสผ่านต้องมีตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว');
   }
 
   if (passwordRequirements.requireNumbers && !/\d/.test(password)) {
-    errors.push('Password must contain at least one number');
+    errors.push('รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว');
   }
 
   if (passwordRequirements.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    errors.push('Password must contain at least one special character');
+    errors.push('รหัสผ่านต้องมีอักขระพิเศษอย่างน้อย 1 ตัว (!@#$%^&*)');
   }
 
   return {
@@ -63,7 +63,7 @@ export function validatePhoneNumber(phone: string): ValidationResult {
   const errors: string[] = [];
 
   if (!phone) {
-    errors.push('Phone number is required');
+    errors.push('กรุณากรอกเบอร์โทรศัพท์');
     return { isValid: false, errors };
   }
 
@@ -73,7 +73,7 @@ export function validatePhoneNumber(phone: string): ValidationResult {
   // Check if it's a valid phone number (10-15 digits)
   const phoneRegex = /^\+?[\d]{10,15}$/;
   if (!phoneRegex.test(cleanPhone)) {
-    errors.push('Invalid phone number format');
+    errors.push('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
   }
 
   return {
@@ -86,7 +86,7 @@ export function validateDateOfBirth(dob: string): ValidationResult {
   const errors: string[] = [];
 
   if (!dob) {
-    errors.push('Date of birth is required');
+    errors.push('กรุณากรอกวันเกิด');
     return { isValid: false, errors };
   }
 
@@ -94,12 +94,12 @@ export function validateDateOfBirth(dob: string): ValidationResult {
   const today = new Date();
 
   if (isNaN(date.getTime())) {
-    errors.push('Invalid date format');
+    errors.push('รูปแบบวันที่ไม่ถูกต้อง');
     return { isValid: false, errors };
   }
 
   if (date > today) {
-    errors.push('Date of birth cannot be in the future');
+    errors.push('วันเกิดต้องไม่เกินวันปัจจุบัน');
   }
 
   // Check minimum age (e.g., 5 years old)
@@ -108,7 +108,7 @@ export function validateDateOfBirth(dob: string): ValidationResult {
   minDate.setFullYear(minDate.getFullYear() - minAge);
 
   if (date > minDate) {
-    errors.push(`Must be at least ${minAge} years old`);
+    errors.push(`ต้องมีอายุอย่างน้อย ${minAge} ปี`);
   }
 
   // Check maximum age (e.g., 100 years old)
@@ -117,7 +117,7 @@ export function validateDateOfBirth(dob: string): ValidationResult {
   maxDate.setFullYear(maxDate.getFullYear() - maxAge);
 
   if (date < maxDate) {
-    errors.push('Invalid date of birth');
+    errors.push('วันเกิดไม่ถูกต้อง');
   }
 
   return {
@@ -130,7 +130,7 @@ export function validateRequired(value: string, fieldName: string): ValidationRe
   const errors: string[] = [];
 
   if (!value || value.trim() === '') {
-    errors.push(`${fieldName} is required`);
+    errors.push(`กรุณากรอก${fieldName}`);
   }
 
   return {
@@ -143,16 +143,16 @@ export function validateOTP(otp: string): ValidationResult {
   const errors: string[] = [];
 
   if (!otp) {
-    errors.push('OTP is required');
+    errors.push('กรุณากรอกรหัส OTP');
     return { isValid: false, errors };
   }
 
   if (otp.length !== authConfig.otpLength) {
-    errors.push(`OTP must be ${authConfig.otpLength} digits`);
+    errors.push(`รหัส OTP ต้องมี ${authConfig.otpLength} หลัก`);
   }
 
   if (!/^\d+$/.test(otp)) {
-    errors.push('OTP must contain only numbers');
+    errors.push('รหัส OTP ต้องเป็นตัวเลขเท่านั้น');
   }
 
   return {

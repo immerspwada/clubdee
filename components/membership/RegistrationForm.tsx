@@ -1,19 +1,20 @@
 'use client';
 
 /**
- * Multi-Step Registration Form Component
+ * Unified Multi-Step Registration Form Component
  * 
- * A comprehensive registration form for membership applications with three steps:
- * 1. Personal Information - Collect athlete's personal details
- * 2. Document Upload - Upload required documents (ID card, house registration, birth certificate)
- * 3. Sport Selection - Choose which sport/club to join
+ * A comprehensive registration form with FOUR steps:
+ * 1. Account Creation - Create Supabase Auth account (email + password)
+ * 2. Personal Information - Collect athlete's personal details
+ * 3. Document Upload - Upload required documents (ID card, house registration, birth certificate)
+ * 4. Sport Selection - Choose which sport/club to join
  * 
  * Features:
- * - Progress indicator showing current step (1/3, 2/3, 3/3)
+ * - Progress indicator showing current step (1/4, 2/4, 3/4, 4/4)
  * - Navigation buttons (Next, Back, Submit)
  * - Form state management with useState
  * - Step validation before allowing progression
- * - Calls submitApplication() action on final submit
+ * - Creates account in Step 1, then submits application in Step 4
  * - Loading states during submission
  * - Error handling with user-friendly messages
  * 
@@ -23,19 +24,21 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AccountCreationForm from './AccountCreationForm';
 import PersonalInfoForm from './PersonalInfoForm';
 import DocumentUpload from './DocumentUpload';
 import { SportSelection } from './SportSelection';
+import { signUp } from '@/lib/auth/actions';
 import { submitApplication } from '@/lib/membership/actions';
+import { validateEmail, validatePassword } from '@/lib/auth/validation';
 import { personalInfoSchema, type PersonalInfoInput } from '@/lib/membership/validation';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface RegistrationFormProps {
-  userId: string;
   onSuccess?: () => void;
 }
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 interface DocumentInfo {
   url: string;
@@ -44,6 +47,11 @@ interface DocumentInfo {
 }
 
 interface FormState {
+  account: {
+    email: string;
+    password: string;
+    confirmPassword: string;
+  };
   personalInfo: PersonalInfoInput;
   documents: {
     id_card: DocumentInfo | null;
@@ -53,10 +61,16 @@ interface FormState {
   clubId: string;
 }
 
-export default function RegistrationForm({ userId, onSuccess }: RegistrationFormProps) {
+export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
   // Form state
   const [currentStep, setCurrentStep] = useState<Step>(1);
+  const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormState>({
+    account: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
     personalInfo: {
       full_name: '',
       phone_number: '',
@@ -79,8 +93,30 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  // Validate Step 1: Personal Information
+  // Validate Step 1: Account Creation
   const validateStep1 = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    const emailValidation = validateEmail(formData.account.email);
+    if (!emailValidation.isValid) {
+      errors.email = emailValidation.errors[0];
+    }
+
+    const passwordValidation = validatePassword(formData.account.password);
+    if (!passwordValidation.isValid) {
+      errors.password = passwordValidation.errors[0];
+    }
+
+    if (formData.account.password !== formData.account.confirmPassword) {
+      errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validate Step 2: Personal Information
+  const validateStep2 = (): boolean => {
     try {
       personalInfoSchema.parse(formData.personalInfo);
       setValidationErrors({});
@@ -98,8 +134,8 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
     }
   };
 
-  // Validate Step 2: Documents
-  const validateStep2 = (): boolean => {
+  // Validate Step 3: Documents
+  const validateStep3 = (): boolean => {
     const errors: Record<string, string> = {};
     
     if (!formData.documents.id_card || !formData.documents.id_card.url) {
@@ -116,8 +152,8 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
     return Object.keys(errors).length === 0;
   };
 
-  // Validate Step 3: Sport Selection
-  const validateStep3 = (): boolean => {
+  // Validate Step 4: Sport Selection
+  const validateStep4 = (): boolean => {
     if (!formData.clubId) {
       setSubmitError('กรุณาเลือกกีฬาที่ต้องการสมัคร');
       return false;
@@ -127,18 +163,50 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
   };
 
   // Handle Next button
-  const handleNext = () => {
+  const handleNext = async () => {
     let isValid = false;
 
     if (currentStep === 1) {
+      // Step 1: Create account
       isValid = validateStep1();
+      if (isValid) {
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+          const result = await signUp(formData.account.email, formData.account.password);
+
+          if (!result.success) {
+            setSubmitError(result.error || 'การสร้างบัญชีล้มเหลว');
+            setIsSubmitting(false);
+            return;
+          }
+
+          // Save user ID for later use
+          if (result.userId) {
+            setUserId(result.userId);
+          }
+
+          setIsSubmitting(false);
+          setCurrentStep(2);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (error) {
+          setSubmitError('เกิดข้อผิดพลาดที่ไม่คาดคิด');
+          setIsSubmitting(false);
+        }
+      }
     } else if (currentStep === 2) {
       isValid = validateStep2();
-    }
-
-    if (isValid && currentStep < 3) {
-      setCurrentStep((prev) => (prev + 1) as Step);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (isValid && currentStep < 4) {
+        setCurrentStep((prev) => (prev + 1) as Step);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else if (currentStep === 3) {
+      isValid = validateStep3();
+      if (isValid && currentStep < 4) {
+        setCurrentStep((prev) => (prev + 1) as Step);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
@@ -155,7 +223,12 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
   // Handle form submission
   const handleSubmit = async () => {
     // Final validation
-    if (!validateStep3()) {
+    if (!validateStep4()) {
+      return;
+    }
+
+    if (!userId) {
+      setSubmitError('ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่อีกครั้ง');
       return;
     }
 
@@ -211,6 +284,18 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
     }
   };
 
+  // Update account info
+  const handleAccountChange = (value: {
+    email: string;
+    password: string;
+    confirmPassword: string;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      account: value,
+    }));
+  };
+
   // Update personal info
   const handlePersonalInfoChange = (value: PersonalInfoInput) => {
     setFormData((prev) => ({
@@ -243,7 +328,7 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
   };
 
   // Progress indicator
-  const progressPercentage = (currentStep / 3) * 100;
+  const progressPercentage = (currentStep / 4) * 100;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -258,12 +343,13 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">
-                ขั้นตอนที่ {currentStep} จาก 3
+                ขั้นตอนที่ {currentStep} จาก 4
               </span>
               <span className="text-sm text-gray-500">
-                {currentStep === 1 && 'ข้อมูลส่วนตัว'}
-                {currentStep === 2 && 'อัปโหลดเอกสาร'}
-                {currentStep === 3 && 'เลือกกีฬา'}
+                {currentStep === 1 && 'สร้างบัญชี'}
+                {currentStep === 2 && 'ข้อมูลส่วนตัว'}
+                {currentStep === 3 && 'อัปโหลดเอกสาร'}
+                {currentStep === 4 && 'เลือกกีฬา'}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -286,7 +372,7 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
               >
                 {currentStep > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
               </div>
-              <span className="text-sm font-medium text-gray-700">ข้อมูลส่วนตัว</span>
+              <span className="text-sm font-medium text-gray-700 hidden sm:inline">บัญชี</span>
             </div>
 
             <div className="flex-1 h-0.5 bg-gray-200 mx-2" />
@@ -301,7 +387,7 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
               >
                 {currentStep > 2 ? <CheckCircle2 className="w-5 h-5" /> : '2'}
               </div>
-              <span className="text-sm font-medium text-gray-700">เอกสาร</span>
+              <span className="text-sm font-medium text-gray-700 hidden sm:inline">ข้อมูล</span>
             </div>
 
             <div className="flex-1 h-0.5 bg-gray-200 mx-2" />
@@ -314,16 +400,48 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
                     : 'bg-gray-200 text-gray-600'
                 }`}
               >
-                3
+                {currentStep > 3 ? <CheckCircle2 className="w-5 h-5" /> : '3'}
               </div>
-              <span className="text-sm font-medium text-gray-700">เลือกกีฬา</span>
+              <span className="text-sm font-medium text-gray-700 hidden sm:inline">เอกสาร</span>
+            </div>
+
+            <div className="flex-1 h-0.5 bg-gray-200 mx-2" />
+
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= 4
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                4
+              </div>
+              <span className="text-sm font-medium text-gray-700 hidden sm:inline">กีฬา</span>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="pt-6">
-          {/* Step 1: Personal Information */}
+          {/* Step 1: Account Creation */}
           {currentStep === 1 && (
+            <div className="space-y-6">
+              <AccountCreationForm
+                value={formData.account}
+                onChange={handleAccountChange}
+                errors={validationErrors}
+              />
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-800">{submitError}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Personal Information */}
+          {currentStep === 2 && (
             <div className="space-y-6">
               <PersonalInfoForm
                 value={formData.personalInfo}
@@ -333,8 +451,8 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
             </div>
           )}
 
-          {/* Step 2: Document Upload */}
-          {currentStep === 2 && (
+          {/* Step 3: Document Upload */}
+          {currentStep === 3 && (
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-blue-800">
@@ -374,8 +492,8 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
             </div>
           )}
 
-          {/* Step 3: Sport Selection */}
-          {currentStep === 3 && (
+          {/* Step 4: Sport Selection */}
+          {currentStep === 4 && (
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-blue-800">
@@ -422,13 +540,21 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
             </Button>
 
             <div className="flex items-center space-x-3">
-              {currentStep < 3 ? (
+              {currentStep < 4 ? (
                 <Button
                   type="button"
                   onClick={handleNext}
                   disabled={isSubmitting}
+                  className="min-w-[120px]"
                 >
-                  ถัดไป
+                  {isSubmitting && currentStep === 1 ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      กำลังสร้างบัญชี...
+                    </>
+                  ) : (
+                    'ถัดไป'
+                  )}
                 </Button>
               ) : (
                 <Button

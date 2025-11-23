@@ -58,12 +58,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Protect register-membership route (requires authentication)
-  if (!user && request.nextUrl.pathname.startsWith('/register-membership')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
+  // Allow /register-membership for non-authenticated users
+  // (They will create account in Step 1 of the form)
 
   // Role-based routing for authenticated users
   if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
@@ -102,12 +98,14 @@ export async function updateSession(request: NextRequest) {
       // Allow access to specific pages even when not active:
       // - applications page: to view application status (AC6)
       // - register-membership: to reapply after rejection (BR1)
+      // - pending-approval: to see pending/rejected status
       const isApplicationsPage = request.nextUrl.pathname.startsWith('/dashboard/athlete/applications');
       const isRegisterPage = request.nextUrl.pathname.startsWith('/register-membership');
+      const isPendingApprovalPage = request.nextUrl.pathname.startsWith('/pending-approval');
 
       // For all other dashboard pages, check membership status
       // Only 'active' status grants access to dashboard features
-      if (!isApplicationsPage && !isRegisterPage) {
+      if (!isApplicationsPage && !isRegisterPage && !isPendingApprovalPage) {
         // Athletes must have 'active' membership_status to access dashboard
         // This is the ONLY check - membership_status is the single source of truth
         if (membershipStatus !== 'active') {
