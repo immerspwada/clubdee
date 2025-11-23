@@ -12,6 +12,7 @@ export async function signUp(email: string, password: string): Promise<AuthResul
   try {
     const supabase = await createClient();
 
+    // Step 1: Create auth account
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -24,8 +25,38 @@ export async function signUp(email: string, password: string): Promise<AuthResul
       return { success: false, error: error.message };
     }
 
+    if (!data.user) {
+      return { success: false, error: 'Failed to create user account' };
+    }
+
+    // Step 2: Create basic profile (membership_status = null until they apply)
+    const { error: profileError } = await supabase.from('profiles').insert({
+      user_id: data.user.id,
+      full_name: email.split('@')[0], // Use email prefix as temporary name
+      membership_status: null, // Not yet applied for membership
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (profileError) {
+      console.error('[signUp] Failed to create profile:', profileError);
+      // Don't fail signup if profile creation fails - it can be created later
+    }
+
+    // Step 3: Create user role (default: athlete)
+    const { error: roleError } = await supabase.from('user_roles').insert({
+      user_id: data.user.id,
+      role: 'athlete', // Default role for new signups
+    });
+
+    if (roleError) {
+      console.error('[signUp] Failed to create user role:', roleError);
+      // Don't fail signup if role creation fails - it can be created later
+    }
+
     return { success: true, data };
-  } catch {
+  } catch (error) {
+    console.error('[signUp] Unexpected error:', error);
     return {
       success: false,
       error: 'An error occurred during sign up',
@@ -79,19 +110,8 @@ export async function signIn(
       }
     }
 
-    type UserRole = 'admin' | 'coach' | 'athlete';
-    let role: UserRole = 'athlete';
-
-    // Determine role from email (simple fallback)
-    if (email.includes('admin')) {
-      role = 'admin';
-    } else if (email.includes('coach')) {
-      role = 'coach';
-    }
-
-    console.log('[signIn] Using email-based role:', role);
-
-    return { success: true, data: { ...authData, role } };
+    // Return success - middleware will handle role-based routing
+    return { success: true, data: authData };
   } catch (error) {
     console.error('[signIn] Unexpected error:', error);
     return {

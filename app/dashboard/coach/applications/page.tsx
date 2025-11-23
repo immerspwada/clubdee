@@ -22,12 +22,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getClubApplications } from '@/lib/membership/queries';
-import { reviewApplication } from '@/lib/membership/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import ApplicationList from '@/components/membership/ApplicationList';
-import ApplicationDetailModal from '@/components/membership/ApplicationDetailModal';
-import { Loader2, FileText, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { ApplicationReviewCard } from '@/components/coach/ApplicationReviewCard';
+import { Loader2, FileText, Clock, CheckCircle, XCircle, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Application {
   id: string;
@@ -54,7 +60,7 @@ export default function CoachApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [coachClubId, setCoachClubId] = useState<string | null>(null);
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     loadApplications();
@@ -122,45 +128,11 @@ export default function CoachApplicationsPage() {
     }
   }
 
-  async function handleApprove(applicationId: string) {
-    const result = await reviewApplication(applicationId, 'approve');
-
-    if (result.success) {
-      toast({
-        title: 'อนุมัติสำเร็จ! 🎉',
-        description: 'ใบสมัครได้รับการอนุมัติแล้ว และสร้างโปรไฟล์นักกีฬาเรียบร้อย',
-        variant: 'default',
-      });
-      // Refresh list
-      await loadApplications();
-    } else {
-      toast({
-        title: 'เกิดข้อผิดพลาด',
-        description: result.error || 'ไม่สามารถอนุมัติใบสมัครได้',
-        variant: 'destructive',
-      });
-    }
-  }
-
-  async function handleReject(applicationId: string, reason: string) {
-    const result = await reviewApplication(applicationId, 'reject', reason);
-
-    if (result.success) {
-      toast({
-        title: 'ปฏิเสธใบสมัครแล้ว',
-        description: 'ใบสมัครถูกปฏิเสธเรียบร้อย',
-        variant: 'default',
-      });
-      // Refresh list
-      await loadApplications();
-    } else {
-      toast({
-        title: 'เกิดข้อผิดพลาด',
-        description: result.error || 'ไม่สามารถปฏิเสธใบสมัครได้',
-        variant: 'destructive',
-      });
-    }
-  }
+  // Filter applications based on status
+  const filteredApplications = applications.filter((app) => {
+    if (statusFilter === 'all') return true;
+    return app.status === statusFilter;
+  });
 
   // Calculate stats
   const stats = {
@@ -244,31 +216,62 @@ export default function CoachApplicationsPage() {
         </Card>
       </div>
 
-      {/* Applications List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>รายการใบสมัคร</CardTitle>
-          <CardDescription>
-            คลิกที่แถวเพื่อดูรายละเอียดและดำเนินการ
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ApplicationList
-            applications={applications}
-            onViewDetails={(app) => setSelectedApplication(app as any)}
-            loading={loading}
-          />
-        </CardContent>
-      </Card>
+      {/* Filter Section */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="w-5 h-5 text-gray-500" />
+          <span className="text-sm font-medium">กรอง:</span>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="เลือกสถานะ" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทั้งหมด</SelectItem>
+            <SelectItem value="pending">รอพิจารณา</SelectItem>
+            <SelectItem value="approved">อนุมัติแล้ว</SelectItem>
+            <SelectItem value="rejected">ไม่อนุมัติ</SelectItem>
+          </SelectContent>
+        </Select>
+        {statusFilter !== 'all' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+          >
+            ล้างตัวกรอง
+          </Button>
+        )}
+      </div>
 
-      {/* Application Detail Modal */}
-      <ApplicationDetailModal
-        application={selectedApplication}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onClose={() => setSelectedApplication(null)}
-        isCoach={true}
-      />
+      {/* Applications List */}
+      {filteredApplications.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-600">
+              {statusFilter === 'all'
+                ? 'ยังไม่มีใบสมัคร'
+                : `ไม่มีใบสมัครที่${
+                    statusFilter === 'pending'
+                      ? 'รอพิจารณา'
+                      : statusFilter === 'approved'
+                      ? 'อนุมัติแล้ว'
+                      : 'ไม่อนุมัติ'
+                  }`}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filteredApplications.map((application) => (
+            <ApplicationReviewCard
+              key={application.id}
+              application={application}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,8 @@
  * Sport Selection Component
  * 
  * Allows athletes to select which sport/club they want to join during registration.
- * Displays available clubs as grid cards with sport name, coach info, and member count.
+ * Displays available clubs as grid cards with sport name and member count.
+ * Coach assignment happens after approval, so coach info is not shown during registration.
  * 
  * Features:
  * - Single select (one sport per application as per task requirements)
@@ -13,7 +14,7 @@
  * - Empty state if no clubs available
  * - Responsive grid layout
  * 
- * Validates: Requirements US-2, NFR-9
+ * Validates: Requirements AC1 (Club-Based Application)
  */
 
 import { useEffect, useState } from 'react';
@@ -21,20 +22,15 @@ import { getAvailableClubs } from '@/lib/membership/queries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Users, User } from 'lucide-react';
+import { Search, Users } from 'lucide-react';
 
 interface Club {
   id: string;
   name: string;
   description: string | null;
-  sport_type: string | null;
+  sport_type: string;
   member_count: number;
-  coach: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  } | null;
+  coach_count: number;
 }
 
 interface SportSelectionProps {
@@ -62,7 +58,7 @@ export function SportSelection({ onSelect, selectedClubId }: SportSelectionProps
       const filtered = clubs.filter(
         (club) =>
           club.name.toLowerCase().includes(query) ||
-          club.sport_type?.toLowerCase().includes(query) ||
+          club.sport_type.toLowerCase().includes(query) ||
           club.description?.toLowerCase().includes(query)
       );
       setFilteredClubs(filtered);
@@ -183,11 +179,9 @@ export function SportSelection({ onSelect, selectedClubId }: SportSelectionProps
                     <span className="text-blue-600 text-sm font-normal">✓ เลือกแล้ว</span>
                   )}
                 </CardTitle>
-                {club.sport_type && (
-                  <CardDescription className="text-sm text-gray-600">
-                    {club.sport_type}
-                  </CardDescription>
-                )}
+                <CardDescription className="text-sm font-medium text-blue-600">
+                  {club.sport_type}
+                </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-3">
@@ -196,22 +190,23 @@ export function SportSelection({ onSelect, selectedClubId }: SportSelectionProps
                   <p className="text-sm text-gray-600 line-clamp-2">{club.description}</p>
                 )}
 
-                {/* Coach Info */}
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-700">
-                    {club.coach
-                      ? `โค้ช: ${club.coach.first_name} ${club.coach.last_name}`
-                      : 'ยังไม่มีโค้ช'}
-                  </span>
-                </div>
+                {/* Club Details */}
+                <div className="space-y-2">
+                  {/* Member Count */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-700">
+                      สมาชิก: {club.member_count} คน
+                    </span>
+                  </div>
 
-                {/* Member Count */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-700">
-                    สมาชิก: {club.member_count} คน
-                  </span>
+                  {/* Coach Count */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="w-4 h-4 text-blue-400" />
+                    <span className="text-gray-700">
+                      โค้ช: {club.coach_count} คน
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>

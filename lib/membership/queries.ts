@@ -24,15 +24,17 @@ import { createClient } from '@/lib/supabase/server';
 import { MembershipApplication, ApplicationStatus } from '@/types/database.types';
 
 /**
- * Get available clubs with coach info and member count
+ * Get available clubs with member count and coach count
  * Used for sport selection during registration
- * Validates: Requirements US-2
+ * Coach information is not shown during registration as per AC1 (Club-Based Application)
+ * Coach will be assigned after approval by the club's coach
+ * Validates: Requirements AC1, Task 3.1
  */
 export async function getAvailableClubs() {
   try {
     const supabase = await createClient();
 
-    // Fetch clubs with coach information
+    // Fetch clubs without coach information
     const { data: clubs, error: clubsError } = await supabase
       .from('clubs')
       .select(
@@ -40,13 +42,7 @@ export async function getAvailableClubs() {
         id,
         name,
         description,
-        sport_type,
-        coaches (
-          id,
-          first_name,
-          last_name,
-          email
-        )
+        sport_type
       `
       )
       .order('name');
@@ -56,22 +52,33 @@ export async function getAvailableClubs() {
       return { error: 'ไม่สามารถโหลดรายการกีฬาได้' };
     }
 
-    // Get member count for each club
+    // Get member count and coach count for each club
     const clubsWithCount = await Promise.all(
       (clubs || []).map(async (club: any) => {
-        const { count, error: countError } = await supabase
+        // Get athlete count
+        const { count: memberCount, error: memberCountError } = await supabase
           .from('athletes')
           .select('*', { count: 'exact', head: true })
           .eq('club_id', club.id);
 
-        if (countError) {
-          console.error('Error counting members:', countError);
+        if (memberCountError) {
+          console.error('Error counting members:', memberCountError);
+        }
+
+        // Get coach count
+        const { count: coachCount, error: coachCountError } = await supabase
+          .from('coaches')
+          .select('*', { count: 'exact', head: true })
+          .eq('club_id', club.id);
+
+        if (coachCountError) {
+          console.error('Error counting coaches:', coachCountError);
         }
 
         return {
           ...club,
-          member_count: count || 0,
-          coach: Array.isArray(club.coaches) && club.coaches.length > 0 ? club.coaches[0] : null,
+          member_count: memberCount || 0,
+          coach_count: coachCount || 0,
         };
       })
     );
@@ -270,6 +277,58 @@ export async function getAllApplications(filters?: {
   } catch (error) {
     console.error('Unexpected error in getAllApplications:', error);
     return { error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' };
+  }
+}
+
+/**
+ * Validate that a club exists and is available for registration
+ * Validates: Requirements AC1 (Club-Based Application)
+ * 
+ * @param clubId - UUID of the club to validate
+ * @returns { valid: boolean, error?: string, club?: any }
+ */
+export async function validateClubSelection(clubId: string) {
+  try {
+    const supabase = await createClient();
+
+    // Check if club exists
+    const { data: club, error } = await supabase
+      .from('clubs')
+      .select('id, name, sport_type, description')
+      .eq('id', clubId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error validating club:', error);
+      return { valid: false, error: 'ไม่สามารถตรวจสอบกีฬาได้' };
+    }
+
+    if (!club) {
+      return { valid: false, error: 'ไม่พบกีฬาที่เลือก กรุณาเลือกกีฬาใหม่' };
+    }
+
+    // Check if club has at least one coach
+    const { count: coachCount, error: coachError } = await supabase
+      .from('coaches')
+      .select('*', { count: 'exact', head: true })
+      .eq('club_id', clubId);
+
+    if (coachError) {
+      console.error('Error checking coaches:', coachError);
+      return { valid: false, error: 'ไม่สามารถตรวจสอบโค้ชได้' };
+    }
+
+    if (!coachCount || coachCount === 0) {
+      return { 
+        valid: false, 
+        error: `กีฬา ${club.name} ยังไม่มีโค้ช ไม่สามารถรับสมัครได้ในขณะนี้` 
+      };
+    }
+
+    return { valid: true, club };
+  } catch (error) {
+    console.error('Unexpected error in validateClubSelection:', error);
+    return { valid: false, error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' };
   }
 }
 

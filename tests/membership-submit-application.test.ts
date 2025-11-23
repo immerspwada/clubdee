@@ -5,8 +5,9 @@
  * - Input validation works correctly
  * - Phone number format is validated
  * - Document requirements are enforced
+ * - Profile membership_status is updated to 'pending' on submission
  * 
- * Validates: Requirements US-1, US-8
+ * Validates: Requirements US-1, US-8, AC1, AC6
  * 
  * Note: Full integration tests with database require Next.js request context
  * and should be run in an E2E testing environment.

@@ -24,19 +24,22 @@ import {
   type ApplicationSubmissionInput 
 } from './validation';
 import type { MembershipApplication, PersonalInfo } from '@/types/database.types';
+import { validateClubSelection } from './queries';
 
 /**
  * Submit a new membership application
  * 
- * Validates: Requirements US-1, US-8
+ * Validates: Requirements US-1, US-8, AC1, AC6
  * 
  * Process:
  * 1. Validate input with Zod schemas
  * 2. Verify authentication
- * 3. Check for duplicate application (UNIQUE constraint on user_id + club_id)
- * 4. Create application record with JSONB data structure
- * 5. Add initial activity log entry via add_activity_log() function
- * 6. Return success with application ID
+ * 3. Validate club selection (club exists and has coaches)
+ * 4. Check for duplicate application (UNIQUE constraint on user_id + club_id)
+ * 5. Create application record with JSONB data structure
+ * 6. Update profile membership_status to 'pending' (AC6)
+ * 7. Add initial activity log entry via add_activity_log() function
+ * 8. Return success with application ID
  * 
  * @param data - Application submission data (club_id, personal_info, documents)
  * @returns { success: boolean, applicationId?: string, error?: string }
@@ -73,15 +76,32 @@ export async function submitApplication(
       };
     }
 
-    // Step 3: Check for duplicate application
-    // The database has UNIQUE constraint on (user_id, club_id)
-    // But we check first to provide better error message
-    const { data: existingApplication, error: checkError } = await supabase
-      .from('membership_applications')
-      .select('id, status')
-      .eq('user_id', user.id)
-      .eq('club_id', validatedData.club_id)
-      .maybeSingle();
+    // Step 3: Validate club selection
+    // Validates: Requirements AC1 (Club-Based Application)
+    const clubValidation = await validateClubSelection(validatedData.club_id);
+    
+    if (!clubValidation.valid) {
+      return {
+        success: false,
+        error: clubValidation.error || 'กีฬาที่เลือกไม่ถูกต้อง'
+      };
+    }
+
+    // Step 4: Check for duplicate pending application
+    // Business Rule BR1: One Active Application Per User
+    // Use the check_duplicate_pending_application() database function
+    const { data: duplicateCheck, error: checkError } = await supabase
+      .rpc('check_duplicate_pending_application', {
+        p_user_id: user.id
+      } as any) as { 
+        data: Array<{
+          has_pending: boolean;
+          pending_application_id: string | null;
+          pending_club_id: string | null;
+          pending_since: string | null;
+        }> | null;
+        error: any;
+      };
 
     if (checkError) {
       console.error('Error checking for duplicate application:', checkError);
@@ -91,23 +111,26 @@ export async function submitApplication(
       };
     }
 
-    if (existingApplication) {
-      const status = (existingApplication as any).status as string;
-      const statusMap: Record<string, string> = {
-        pending: 'รอการอนุมัติ',
-        approved: 'อนุมัติแล้ว',
-        rejected: 'ไม่อนุมัติ',
-        info_requested: 'รอข้อมูลเพิ่มเติม',
-      };
-      const statusText = statusMap[status] || 'มีอยู่แล้ว';
-
+    // Check if user has any pending application
+    if (duplicateCheck && duplicateCheck.length > 0 && duplicateCheck[0].has_pending) {
+      const pendingApp = duplicateCheck[0];
+      
+      // Get club name for better error message
+      const { data: clubData } = await supabase
+        .from('clubs')
+        .select('name')
+        .eq('id', pendingApp.pending_club_id!)
+        .single();
+      
+      const clubName = (clubData as any)?.name || 'ชมรมอื่น';
+      
       return { 
         success: false, 
-        error: `คุณมีใบสมัครสำหรับกีฬานี้อยู่แล้ว (สถานะ: ${statusText})` 
+        error: `คุณมีใบสมัครที่รอการอนุมัติอยู่แล้วสำหรับ ${clubName} กรุณารอการพิจารณาก่อนสมัครใหม่` 
       };
     }
 
-    // Step 4: Create application record with JSONB data structure
+    // Step 5: Create application record with JSONB data structure
     const insertData = {
       user_id: user.id,
       club_id: validatedData.club_id,
@@ -147,7 +170,20 @@ export async function submitApplication(
       };
     }
 
-    // Step 5: Add initial activity log entry via add_activity_log() function
+    // Step 6: Update profile membership_status to 'pending'
+    // Business Rule AC6: Pending State Restrictions
+    const { error: profileUpdateError } = await (supabase
+      .from('profiles') as any)
+      .update({ membership_status: 'pending' })
+      .eq('id', user.id);
+
+    if (profileUpdateError) {
+      console.error('Error updating profile membership_status:', profileUpdateError);
+      // Don't fail the entire operation - application was created successfully
+      // The profile status can be updated later if needed
+    }
+
+    // Step 7: Add initial activity log entry via add_activity_log() function
     const { error: logError } = await supabase.rpc('add_activity_log', {
       p_application_id: (newApplication as any).id,
       p_action: 'submitted',
@@ -164,7 +200,7 @@ export async function submitApplication(
       // The application was created successfully
     }
 
-    // Step 6: Return success with application ID
+    // Step 8: Return success with application ID
     return { 
       success: true, 
       applicationId: (newApplication as any).id 

@@ -347,19 +347,37 @@ function ApplicationCard({ application }: { application: Application }) {
         </div>
 
         {/* Rejection Reason */}
-        {application.status === 'rejected' && application.review_info?.notes && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm font-medium text-red-900 mb-1">เหตุผลที่ไม่อนุมัติ:</p>
-            <p className="text-sm text-red-800">{application.review_info.notes}</p>
+        {application.status === 'rejected' && (
+          <div className="space-y-3">
+            {application.review_info?.notes && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-red-900 mb-1">เหตุผลที่ไม่อนุมัติ:</p>
+                <p className="text-sm text-red-800">{application.review_info.notes}</p>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => window.location.href = '/register-membership'}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                สมัครใหม่
+              </Button>
+            </div>
           </div>
         )}
 
         {/* Approval Info */}
         {application.status === 'approved' && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
             <p className="text-sm text-green-800">
               🎉 ยินดีด้วย! ใบสมัครของคุณได้รับการอนุมัติแล้ว คุณสามารถเข้าร่วมฝึกซ้อมได้
             </p>
+            {application.review_info?.reviewed_by && (
+              <p className="text-xs text-green-700">
+                อนุมัติโดยโค้ชของชมรม
+              </p>
+            )}
           </div>
         )}
 

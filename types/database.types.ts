@@ -16,6 +16,9 @@ export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
 // Membership Application Types
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'info_requested';
 
+// Membership Status Types
+export type MembershipStatus = 'pending' | 'active' | 'rejected' | 'suspended';
+
 export type DocumentType = 'id_card' | 'house_registration' | 'birth_certificate';
 
 export interface PersonalInfo {
@@ -481,6 +484,9 @@ export interface Database {
           review_info: Json | null;
           activity_log: Json;
           profile_id: string | null;
+          assigned_coach_id: string | null;
+          reviewed_by: string | null;
+          rejection_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -494,6 +500,9 @@ export interface Database {
           review_info?: Json | null;
           activity_log?: Json;
           profile_id?: string | null;
+          assigned_coach_id?: string | null;
+          reviewed_by?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -507,8 +516,43 @@ export interface Database {
           review_info?: Json | null;
           activity_log?: Json;
           profile_id?: string | null;
+          assigned_coach_id?: string | null;
+          reviewed_by?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
+          full_name: string;
+          role: UserRole;
+          membership_status: MembershipStatus;
+          coach_id: string | null;
+          club_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          full_name: string;
+          role?: UserRole;
+          membership_status?: MembershipStatus;
+          coach_id?: string | null;
+          club_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          full_name?: string;
+          role?: UserRole;
+          membership_status?: MembershipStatus;
+          coach_id?: string | null;
+          club_id?: string | null;
+          created_at?: string;
         };
       };
     };

@@ -63,11 +63,8 @@ export function SimpleLoginForm() {
         localStorage.removeItem(STORAGE_KEY);
       }
 
-      const role = (result.data as { role?: string })?.role || 'athlete';
-      const redirectUrl = role === 'admin' ? '/dashboard/admin' : 
-                         role === 'coach' ? '/dashboard/coach' : 
-                         '/dashboard/athlete';
-      router.push(redirectUrl);
+      // Always redirect to /dashboard - middleware will handle role-based routing
+      router.push('/dashboard');
       router.refresh();
     } catch (err) {
       setError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');

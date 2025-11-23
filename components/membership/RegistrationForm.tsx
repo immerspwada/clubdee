@@ -381,12 +381,25 @@ export default function RegistrationForm({ userId, onSuccess }: RegistrationForm
                 <p className="text-sm text-blue-800">
                   🏆 เลือกกีฬาที่คุณต้องการสมัคร (เลือกได้ 1 กีฬา)
                 </p>
+                <p className="text-xs text-blue-700 mt-2">
+                  โค้ชจะได้รับมอบหมายให้คุณหลังจากการอนุมัติใบสมัคร
+                </p>
               </div>
 
               <SportSelection
                 onSelect={handleClubSelect}
                 selectedClubId={formData.clubId}
               />
+
+              {/* Selection Confirmation */}
+              {formData.clubId && !submitError && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-green-800">
+                    คุณได้เลือกกีฬาแล้ว กดปุ่ม "ส่งใบสมัคร" เพื่อดำเนินการต่อ
+                  </p>
+                </div>
+              )}
 
               {submitError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">

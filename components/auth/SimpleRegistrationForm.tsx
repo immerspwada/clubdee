@@ -81,8 +81,8 @@ export function SimpleRegistrationForm() {
         return;
       }
 
-      // Redirect to OTP verification
-      router.push(`/auth/verify-otp?email=${encodeURIComponent(formData.email)}`);
+      // Redirect directly to membership registration (no OTP verification)
+      router.push('/register-membership');
     } catch {
       setError('เกิดข้อผิดพลาดที่ไม่คาดคิด');
       setLoading(false);
@@ -92,10 +92,16 @@ export function SimpleRegistrationForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>สร้างบัญชีผู้ใช้</CardTitle>
+        <CardTitle>สมัครสมาชิกนักกีฬา</CardTitle>
         <CardDescription>
-          สร้างบัญชีเพื่อเริ่มต้นสมัครเข้าร่วมกีฬา
+          สร้างบัญชีเพื่อสมัครเข้าร่วมชมรมกีฬา
         </CardDescription>
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-sm text-blue-800">
+            <strong>หมายเหตุ:</strong> หน้านี้สำหรับนักกีฬาเท่านั้น<br />
+            ถ้าคุณเป็นโค้ช กรุณาติดต่อผู้ดูแลระบบเพื่อสร้างบัญชีให้
+          </p>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -154,7 +160,7 @@ export function SimpleRegistrationForm() {
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              💡 หลังจากสร้างบัญชีเสร็จ คุณจะต้องยืนยันอีเมลและสมัครเข้าร่วมกีฬา
+              💡 หลังจากสร้างบัญชีเสร็จ คุณจะสามารถสมัครเข้าร่วมกีฬาได้ทันที
             </p>
           </div>
 
