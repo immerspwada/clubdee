@@ -72,7 +72,7 @@ export async function generateQRCode(activityId: string) {
     .eq('id', activityId)
     .single();
 
-  if (!activity || activity.coaches.user_id !== user.id) {
+  if (!activity || (activity as any).coaches.user_id !== user.id) {
     return { error: 'ไม่มีสิทธิ์เข้าถึงกิจกรรมนี้' };
   }
 
