@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/auth/actions';
 import { getDeviceInfo } from '@/lib/utils/device-fingerprint';
+import { getRedirectUrl } from '@/lib/auth/config';
 import Link from 'next/link';
 
 const TEST_USERS = {
@@ -63,8 +64,11 @@ export function SimpleLoginForm() {
         localStorage.removeItem(STORAGE_KEY);
       }
 
-      // Always redirect to /dashboard - middleware will handle role-based routing
-      router.push('/dashboard');
+      // Redirect based on role
+      type UserRole = 'admin' | 'coach' | 'athlete';
+      const role: UserRole = (result.data as { role?: UserRole } | undefined)?.role || 'athlete';
+      const redirectUrl = getRedirectUrl(role);
+      router.push(redirectUrl);
       router.refresh();
     } catch (err) {
       setError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');

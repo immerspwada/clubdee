@@ -43,7 +43,7 @@ export default async function CoachActivitiesPage() {
         athletes (first_name, last_name)
       )
     `)
-    .eq('club_id', coach.club_id)
+    .eq('club_id', (coach as any).club_id)
     .order('activity_date', { ascending: false })
     .order('start_time', { ascending: false });
 
