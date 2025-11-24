@@ -14,6 +14,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { CoachBottomNav } from '@/components/coach/CoachBottomNav';
 
 interface CoachProfile {
   id: string;
@@ -306,9 +307,12 @@ export default async function CoachDashboard() {
           </div>
         </div>
 
-        {/* Bottom Spacing for Mobile */}
-        <div className="h-20"></div>
+        {/* Bottom Spacing for Mobile Navigation */}
+        <div className="h-24"></div>
       </div>
+
+      {/* Bottom Navigation */}
+      <CoachBottomNav />
     </div>
   );
 }

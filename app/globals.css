@@ -144,3 +144,18 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area bottom for navigation */
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}

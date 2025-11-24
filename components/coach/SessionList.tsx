@@ -58,13 +58,13 @@ export function SessionList({
 
   const filteredSessions = filterSessions();
 
-  // Tab button styling
+  // Tab button styling - Native App Style (Black & White)
   const getTabClassName = (tab: FilterTab) => {
     const baseClasses =
-      'px-4 py-2 text-sm font-medium rounded-lg transition-colors';
-    const activeClasses = 'bg-blue-600 text-white';
+      'px-5 py-2.5 text-sm font-semibold rounded-full transition-all whitespace-nowrap';
+    const activeClasses = 'bg-black text-white shadow-sm';
     const inactiveClasses =
-      'bg-gray-100 text-gray-700 hover:bg-gray-200';
+      'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200';
 
     return `${baseClasses} ${
       activeTab === tab ? activeClasses : inactiveClasses
@@ -72,9 +72,9 @@ export function SessionList({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filter Tabs */}
-      <div className="flex gap-2">
+    <div className="space-y-4">
+      {/* Filter Tabs - Native App Style */}
+      <div className="flex gap-2 px-4 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setActiveTab('upcoming')}
           className={getTabClassName('upcoming')}
@@ -97,11 +97,11 @@ export function SessionList({
 
       {/* Session List */}
       {filteredSessions.length === 0 ? (
-        // Empty State
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+        // Empty State - Native App Style
+        <div className="text-center py-16 px-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
             <svg
-              className="w-8 h-8 text-gray-400"
+              className="w-10 h-10 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -114,7 +114,7 @@ export function SessionList({
               />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
+          <h3 className="text-lg font-bold text-black mb-2">
             ไม่มีตารางฝึกซ้อม
           </h3>
           <p className="text-sm text-gray-500">
@@ -125,8 +125,8 @@ export function SessionList({
           </p>
         </div>
       ) : (
-        // Session Cards Grid
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        // Session Cards - Single Column for Mobile Native Feel
+        <div className="space-y-3 px-4">
           {filteredSessions.map((session) => (
             <SessionCard
               key={session.id}

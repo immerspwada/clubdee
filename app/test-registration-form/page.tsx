@@ -36,7 +36,6 @@ export default async function TestRegistrationFormPage() {
         </div>
 
         <RegistrationForm
-          userId={user.id}
           onSuccess={() => {
             alert('Registration successful! Redirecting...');
             window.location.href = '/dashboard/athlete';

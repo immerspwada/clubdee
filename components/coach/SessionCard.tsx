@@ -78,93 +78,62 @@ export function SessionCard({
   const currentStatus = statusConfig[status];
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-6">
-        {/* Status Badge */}
-        <div className="mb-4">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${currentStatus.className}`}
-          >
-            {currentStatus.label}
-          </span>
+    <Link href={`/dashboard/coach/sessions/${session.id}`}>
+      <div className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-gray-100">
+        {/* Header with Status */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-black mb-1 line-clamp-1">
+              {session.title}
+            </h3>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${currentStatus.className}`}
+            >
+              {currentStatus.label}
+            </span>
+          </div>
         </div>
 
-        {/* Session Title */}
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          {session.title}
-        </h3>
-
-        {/* Session Info */}
-        <div className="space-y-2">
-          {/* Date */}
+        {/* Session Info - Compact */}
+        <div className="space-y-2 mb-3">
+          {/* Date & Time Combined */}
           <div className="flex items-center text-sm text-gray-600">
-            <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>{formatDate(session.session_date)}</span>
+            <Calendar className="h-4 w-4 mr-2 flex-shrink-0 text-black" />
+            <span className="text-xs">
+              {formatDate(session.session_date)}
+            </span>
           </div>
 
-          {/* Time */}
           <div className="flex items-center text-sm text-gray-600">
-            <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>
+            <Clock className="h-4 w-4 mr-2 flex-shrink-0 text-black" />
+            <span className="text-xs">
               {formatTime(session.start_time)} - {formatTime(session.end_time)}
             </span>
           </div>
 
           {/* Location */}
           <div className="flex items-center text-sm text-gray-600">
-            <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>{session.location}</span>
-          </div>
-
-          {/* Attendance Count */}
-          <div className="flex items-center text-sm text-gray-600">
-            <Users className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>{session.attendance_count || 0} คน</span>
+            <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-black" />
+            <span className="text-xs line-clamp-1">{session.location}</span>
           </div>
         </div>
 
-        {/* Description (if exists) */}
-        {session.description && (
-          <p className="mt-3 text-sm text-gray-500 line-clamp-2">
-            {session.description}
-          </p>
-        )}
-      </CardContent>
-
-      {/* Action Buttons */}
-      <CardFooter className="flex gap-2 border-t pt-4">
-        <Link href={`/dashboard/coach/sessions/${session.id}`} className="flex-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            ดูรายละเอียด
-          </Button>
-        </Link>
-        {status === 'scheduled' && (
-          <>
-            {onEdit && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(session.id)}
-              >
-                แก้ไข
-              </Button>
-            )}
-            {onCancel && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => onCancel(session.id)}
-              >
-                ยกเลิก
-              </Button>
-            )}
-          </>
-        )}
-      </CardFooter>
-    </Card>
+        {/* Footer with Attendance */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center">
+              <Users className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">ผู้เข้าร่วม</p>
+              <p className="text-sm font-bold text-black">{session.attendance_count || 0} คน</p>
+            </div>
+          </div>
+          <div className="text-xs text-gray-400">
+            แตะเพื่อดูรายละเอียด →
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }
