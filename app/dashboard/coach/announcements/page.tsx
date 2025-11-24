@@ -6,6 +6,13 @@ import { CreateAnnouncementDialog } from '@/components/coach/CreateAnnouncementD
 import { AnnouncementList } from '@/components/coach/AnnouncementList';
 import { CoachBottomNav } from '@/components/coach/CoachBottomNav';
 
+interface CoachProfile {
+  id: string;
+  club_id: string | null;
+  first_name: string;
+  last_name: string;
+}
+
 export default async function CoachAnnouncementsPage() {
   const supabase = await createClient();
 
@@ -18,11 +25,11 @@ export default async function CoachAnnouncementsPage() {
   }
 
   // Get coach profile
-  const { data: coach } = await supabase
+  const { data: coach } = (await supabase
     .from('coaches')
     .select('id, club_id, first_name, last_name')
     .eq('user_id', user.id)
-    .single();
+    .single()) as { data: CoachProfile | null };
 
   if (!coach) {
     redirect('/dashboard/coach');
@@ -32,7 +39,7 @@ export default async function CoachAnnouncementsPage() {
   const { data: announcements } = await supabase
     .from('announcements')
     .select('*')
-    .eq('coach_id', coach?.id || '')
+    .eq('coach_id', (coach as any).id)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
 

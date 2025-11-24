@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { CalendarDays, TrendingUp, Award, Clock } from 'lucide-react';
+import { CalendarDays, TrendingUp, Award, Clock, Bell } from 'lucide-react';
 import Link from 'next/link';
 
 interface AthleteProfile {
@@ -123,6 +123,17 @@ export default async function AthleteDashboard() {
     .order('test_date', { ascending: false })
     .limit(5)) as { data: PerformanceRecord[] | null };
 
+  // Get announcements from club coaches
+  const { data: announcements } = await supabase
+    .from('announcements')
+    .select(`
+      *,
+      announcement_reads!left(user_id)
+    `)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(5);
+
   // Calculate attendance this month
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -226,6 +237,52 @@ export default async function AthleteDashboard() {
             <CalendarDays className="w-10 h-10 opacity-60" />
           </div>
         </Link>
+      )}
+
+      {/* Announcements Section */}
+      {announcements && announcements.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-sm font-semibold text-black">ประกาศจากโค้ช</h2>
+            <Link href="/dashboard/athlete/announcements" className="text-xs text-blue-600">
+              ดูทั้งหมด
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {announcements.slice(0, 3).map((announcement: any) => {
+              const isRead = announcement.announcement_reads?.some(
+                (read: any) => read.user_id === user.id
+              );
+              return (
+                <div
+                  key={announcement.id}
+                  className={`bg-white rounded-2xl p-4 shadow-sm border transition-all ${
+                    isRead ? 'border-gray-100' : 'border-black'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+                      <Bell className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {!isRead && (
+                          <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
+                        )}
+                        <h3 className="font-semibold text-black text-sm line-clamp-1">
+                          {announcement.title}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2">
+                        {announcement.message}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Quick Actions */}
