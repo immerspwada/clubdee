@@ -70,7 +70,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
         toast({
           title: 'เกิดข้อผิดพลาด',
           description: result.error || 'ไม่สามารถอนุมัติใบสมัครได้',
-          variant: 'destructive',
+          variant: 'error',
         });
       }
     } catch (error) {
@@ -78,7 +78,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
       toast({
         title: 'เกิดข้อผิดพลาด',
         description: 'ไม่สามารถอนุมัติใบสมัครได้',
-        variant: 'destructive',
+        variant: 'error',
       });
     } finally {
       setIsApproving(false);
@@ -90,7 +90,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
       toast({
         title: 'กรุณาระบุเหตุผล',
         description: 'กรุณาระบุเหตุผลในการปฏิเสธใบสมัคร',
-        variant: 'destructive',
+        variant: 'error',
       });
       return;
     }
@@ -115,7 +115,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
         toast({
           title: 'เกิดข้อผิดพลาด',
           description: result.error || 'ไม่สามารถปฏิเสธใบสมัครได้',
-          variant: 'destructive',
+          variant: 'error',
         });
       }
     } catch (error) {
@@ -123,7 +123,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
       toast({
         title: 'เกิดข้อผิดพลาด',
         description: 'ไม่สามารถปฏิเสธใบสมัครได้',
-        variant: 'destructive',
+        variant: 'error',
       });
     } finally {
       setIsRejecting(false);
@@ -142,7 +142,7 @@ export function ApplicationReviewCard({ application }: ApplicationReviewCardProp
     const statusMap: Record<string, { label: string; variant: any }> = {
       pending: { label: 'รอพิจารณา', variant: 'secondary' },
       approved: { label: 'อนุมัติแล้ว', variant: 'default' },
-      rejected: { label: 'ปฏิเสธแล้ว', variant: 'destructive' },
+      rejected: { label: 'ปฏิเสธแล้ว', variant: 'error' },
       info_requested: { label: 'ขอข้อมูลเพิ่มเติม', variant: 'outline' },
     };
 

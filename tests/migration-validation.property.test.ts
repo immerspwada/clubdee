@@ -11,7 +11,7 @@
  * all changes and leave the database in its pre-migration state.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fc from 'fast-check';
 
 // Types for migration tracking
@@ -267,7 +267,7 @@ class MigrationExecutor {
             databaseState.tables.add(tableName);
 
             // Extract columns
-            const columnsMatch = command.match(/\((.*)\)/s);
+            const columnsMatch = command.match(/\(([\s\S]*)\)/);
             if (columnsMatch) {
               const columnDefs = columnsMatch[1].split(',');
               const columns = new Set<string>();
@@ -643,6 +643,20 @@ describe('Migration Validation and Rollback Property-Based Tests', () => {
 
     await fc.assert(
       fc.asyncProperty(validMigrationArb, async (migrationSQL) => {
+        // Reset database state for each iteration to avoid conflicts
+        databaseState = {
+          tables: new Set(['users', 'profiles']),
+          columns: new Map([
+            ['users', new Set(['id', 'email', 'created_at'])],
+            ['profiles', new Set(['id', 'user_id', 'full_name'])],
+          ]),
+          indexes: new Set(['idx_users_email']),
+          functions: new Set(['update_updated_at']),
+          policies: new Set([]),
+        };
+        transactionActive = false;
+        stateBeforeTransaction = null;
+
         // Capture state before migration
         const stateBefore = cloneState(databaseState);
         const tableCountBefore = stateBefore.tables.size;
@@ -650,20 +664,8 @@ describe('Migration Validation and Rollback Property-Based Tests', () => {
         // Execute migration
         const result = await MigrationExecutor.execute(migrationSQL);
 
-        // Property 1: Migration should succeed (or fail due to duplicate table)
-        // Since we're running 100 iterations, tables might already exist from previous runs
-        if (!result.success) {
-          // If it failed, it should be due to duplicate table
-          expect(result.error).toBeDefined();
-          expect(result.error).toMatch(/already exists/);
-          
-          // State should be unchanged (rollback worked)
-          const stateAfter = cloneState(databaseState);
-          expect(statesEqual(stateBefore, stateAfter)).toBe(true);
-          return; // Skip remaining checks for failed migrations
-        }
-
-        // If migration succeeded, verify changes
+        // Property 1: Migration should succeed
+        expect(result.success).toBe(true);
         expect(result.error).toBeUndefined();
 
         // Property 2: Database state should have changed
