@@ -740,3 +740,119 @@ describe('Admin Full Access Property-Based Tests', () => {
       phone: fc.option(fc.string(), { nil: null }),
       date_of_birth: fc.option(dateArb.map(d => d.split('T')[0]), { nil: null }),
       avatar_url: fc.option(fc.webUrl(), { nil: null }),
+      club_id: fc.option(uuidArb, { nil: null }),
+      created_at: dateArb,
+      updated_at: dateArb,
+    });
+
+    const clubArb = fc.record({
+      id: uuidArb,
+      name: nameArb,
+      description: fc.option(fc.string({ minLength: 10, maxLength: 100 }), { nil: null }),
+      sport_type: fc.constantFrom('Football', 'Basketball', 'Tennis'),
+      created_at: dateArb,
+      updated_at: dateArb,
+    });
+
+    await fc.assert(
+      fc.asyncProperty(
+        profileArb, // Non-admin user (coach or athlete)
+        fc.constantFrom('coach', 'athlete'), // Role
+        fc.array(clubArb, { minLength: 2, maxLength: 3 }), // Multiple clubs
+        async (userProfile, role, clubs) => {
+          fc.pre(clubs.length >= 2);
+          
+          // Ensure unique club IDs
+          const uniqueClubs = clubs.filter((club, index, self) => 
+            self.findIndex(c => c.id === club.id) === index
+          );
+          fc.pre(uniqueClubs.length >= 2);
+          
+          // Setup: Add user as non-admin
+          profilesStore.push(userProfile);
+          userRolesStore.push({
+            user_id: userProfile.id,
+            role: role as 'coach' | 'athlete',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+          
+          // Add clubs
+          uniqueClubs.forEach((club) => {
+            clubsStore.push(club);
+          });
+          
+          // Authenticate as non-admin user
+          currentAuthUserId = userProfile.id;
+          
+          // Property 1: Non-admin cannot view all profiles
+          const { data: allProfiles, error: profilesError } = await mockSupabase
+            .from('profiles')
+            .select('*')
+            .then((result: any) => result);
+          
+          // Should either return empty or error
+          if (allProfiles) {
+            expect(allProfiles.length).toBe(0);
+          } else {
+            expect(profilesError).toBeDefined();
+          }
+          
+          // Property 2: Non-admin cannot view all clubs
+          const { data: allClubs, error: clubsError } = await mockSupabase
+            .from('clubs')
+            .select('*')
+            .then((result: any) => result);
+          
+          // Should either return empty or error
+          if (allClubs) {
+            expect(allClubs.length).toBe(0);
+          } else {
+            expect(clubsError).toBeDefined();
+          }
+          
+          // Property 3: Non-admin cannot create clubs
+          const newClub = {
+            name: 'Unauthorized Club',
+            description: 'Should not be created',
+            sport_type: 'Soccer',
+          };
+          const { error: createClubError } = await mockSupabase
+            .from('clubs')
+            .insert(newClub);
+          
+          expect(createClubError).toBeDefined();
+          expect(createClubError.message).toContain('Unauthorized');
+          
+          // Verify club was NOT created
+          const unauthorizedClub = clubsStore.find((c) => c.name === newClub.name);
+          expect(unauthorizedClub).toBeUndefined();
+          
+          // Property 4: Non-admin cannot delete clubs
+          const clubToDelete = uniqueClubs[0];
+          const initialClubCount = clubsStore.length;
+          
+          const { error: deleteClubError } = await mockSupabase
+            .from('clubs')
+            .delete()
+            .eq('id', clubToDelete.id);
+          
+          expect(deleteClubError).toBeDefined();
+          expect(deleteClubError.message).toContain('Unauthorized');
+          
+          // Verify club was NOT deleted
+          expect(clubsStore.length).toBe(initialClubCount);
+          const stillExistingClub = clubsStore.find((c) => c.id === clubToDelete.id);
+          expect(stillExistingClub).toBeDefined();
+          
+          // Clean up
+          profilesStore = [];
+          userRolesStore = [];
+          clubsStore = [];
+          currentAuthUserId = null;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+});
