@@ -9,6 +9,21 @@ export const personalInfoSchema = z.object({
     .string()
     .min(2, 'ชื่อ-นามสกุลต้องมีอย่างน้อย 2 ตัวอักษร')
     .max(100, 'ชื่อ-นามสกุลต้องไม่เกิน 100 ตัวอักษร'),
+  nickname: z.string().optional(),
+  gender: z
+    .enum(['male', 'female', 'other'])
+    .refine((val) => ['male', 'female', 'other'].includes(val), {
+      message: 'กรุณาเลือกเพศ',
+    }),
+  date_of_birth: z
+    .string()
+    .min(1, 'กรุณาเลือกวันเกิด')
+    .refine((date) => {
+      const birthDate = new Date(date);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      return age >= 5 && age <= 100;
+    }, 'อายุต้องอยู่ระหว่าง 5-100 ปี'),
   phone_number: z
     .string()
     .regex(phoneRegex, 'รูปแบบเบอร์โทรไม่ถูกต้อง (ตัวอย่าง: 081-234-5678)'),
@@ -19,7 +34,6 @@ export const personalInfoSchema = z.object({
   emergency_contact: z
     .string()
     .regex(phoneRegex, 'รูปแบบเบอร์โทรฉุกเฉินไม่ถูกต้อง (ตัวอย่าง: 081-234-5678)'),
-  date_of_birth: z.string().optional(),
   blood_type: z.string().optional(),
   medical_conditions: z.string().optional(),
 });
@@ -140,7 +154,9 @@ export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Document type labels (Thai)
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  id_card: 'บัตรประชาชน',
-  house_registration: 'ทะเบียนบ้าน',
+  id_card: 'บัตรประชาชนนักกีฬา',
+  house_registration: 'ทะเบียนบ้านนักกีฬา',
   birth_certificate: 'สูติบัตร',
+  parent_id_card: 'บัตรประชาชนผู้ปกครอง',
+  parent_house_registration: 'ทะเบียนบ้านผู้ปกครอง',
 };

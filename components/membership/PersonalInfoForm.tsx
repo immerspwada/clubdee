@@ -95,12 +95,74 @@ export default function PersonalInfoForm({
           value={value.full_name || ''}
           onChange={(e) => handleChange('full_name', e.target.value)}
           onBlur={() => handleBlur('full_name')}
-          placeholder="กรอกชื่อ-นามสกุล"
+          placeholder="กรอกชื่อ-นามสกุล (เช่น สมชาย ใจดี)"
           aria-invalid={!!displayErrors.full_name}
           className={displayErrors.full_name ? 'border-red-500' : ''}
         />
         {displayErrors.full_name && (
           <p className="text-sm text-red-600">{displayErrors.full_name}</p>
+        )}
+        <p className="text-xs text-gray-500">
+          กรอกชื่อและนามสกุลเต็ม (จะถูกแยกเป็นชื่อและนามสกุลโดยอัตโนมัติ)
+        </p>
+      </div>
+
+      {/* Nickname */}
+      <div className="space-y-2">
+        <Label htmlFor="nickname">ชื่อเล่น</Label>
+        <Input
+          id="nickname"
+          name="nickname"
+          type="text"
+          value={value.nickname || ''}
+          onChange={(e) => handleChange('nickname', e.target.value)}
+          placeholder="ชื่อเล่นของคุณ"
+        />
+      </div>
+
+      {/* Gender */}
+      <div className="space-y-2">
+        <Label htmlFor="gender">
+          เพศ <span className="text-red-500">*</span>
+        </Label>
+        <select
+          id="gender"
+          name="gender"
+          value={value.gender || ''}
+          onChange={(e) => handleChange('gender', e.target.value)}
+          onBlur={() => handleBlur('gender')}
+          className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+            displayErrors.gender ? 'border-red-500' : 'border-gray-300'
+          }`}
+          aria-invalid={!!displayErrors.gender}
+        >
+          <option value="">เลือกเพศ</option>
+          <option value="male">ชาย</option>
+          <option value="female">หญิง</option>
+          <option value="other">อื่นๆ</option>
+        </select>
+        {displayErrors.gender && (
+          <p className="text-sm text-red-600">{displayErrors.gender}</p>
+        )}
+      </div>
+
+      {/* Date of Birth */}
+      <div className="space-y-2">
+        <Label htmlFor="date_of_birth">
+          วันเกิด <span className="text-red-500">*</span>
+        </Label>
+        <Input
+          id="date_of_birth"
+          name="date_of_birth"
+          type="date"
+          value={value.date_of_birth || ''}
+          onChange={(e) => handleChange('date_of_birth', e.target.value)}
+          onBlur={() => handleBlur('date_of_birth')}
+          aria-invalid={!!displayErrors.date_of_birth}
+          className={displayErrors.date_of_birth ? 'border-red-500' : ''}
+        />
+        {displayErrors.date_of_birth && (
+          <p className="text-sm text-red-600">{displayErrors.date_of_birth}</p>
         )}
       </div>
 
@@ -180,19 +242,6 @@ export default function PersonalInfoForm({
         </p>
 
         <div className="space-y-4">
-          {/* Date of Birth */}
-          <div className="space-y-2">
-            <Label htmlFor="date_of_birth">วันเกิด</Label>
-            <Input
-              id="date_of_birth"
-              name="date_of_birth"
-              type="date"
-              value={value.date_of_birth || ''}
-              onChange={(e) => handleChange('date_of_birth', e.target.value)}
-              placeholder="เลือกวันเกิด"
-            />
-          </div>
-
           {/* Blood Type */}
           <div className="space-y-2">
             <Label htmlFor="blood_type">กรุ๊ปเลือด</Label>
@@ -207,7 +256,7 @@ export default function PersonalInfoForm({
             />
           </div>
 
-          {/* Medical Conditions */}
+          {/* Medical Conditions / Health Notes */}
           <div className="space-y-2">
             <Label htmlFor="medical_conditions">โรคประจำตัว / ข้อมูลสุขภาพ</Label>
             <Textarea

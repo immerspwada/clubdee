@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Users, Building2, UserCog, Calendar, Shield } from 'lucide-react';
+import { Users, Building2, UserCog, Calendar, Shield, UserPlus } from 'lucide-react';
 import { StatCard } from '@/components/admin/StatCard';
 import Link from 'next/link';
 
@@ -128,7 +128,17 @@ export default async function AdminDashboard() {
         {/* Quick Actions */}
         <div className="mt-8">
           <h2 className="mb-4 text-xl font-semibold text-gray-900">เมนูด่วน</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <Link
+              href="/dashboard/admin/create-user"
+              className="rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 p-6 shadow-lg transition-all hover:shadow-xl hover:scale-105 text-white"
+            >
+              <UserPlus className="mb-2 h-8 w-8" />
+              <h3 className="font-semibold">สร้างบัญชีผู้ใช้</h3>
+              <p className="mt-1 text-sm text-blue-100">
+                สร้าง Admin, Coach, หรือ Athlete
+              </p>
+            </Link>
             <Link
               href="/dashboard/admin/clubs"
               className="rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-md"

@@ -1,11 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, TrendingUp, Award, Clock } from 'lucide-react';
 import Link from 'next/link';
-import DashboardStats from '@/components/athlete/DashboardStats';
-import QuickActions from '@/components/athlete/QuickActions';
-import RecentActivity from '@/components/athlete/RecentActivity';
-import AthleteHeader from '@/components/athlete/AthleteHeader';
 
 interface AthleteProfile {
   id: string;
@@ -154,63 +150,155 @@ export default async function AthleteDashboard() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <AthleteHeader
-        firstName={profile.first_name}
-        lastName={profile.last_name}
-        nickname={profile.nickname}
-        clubName={profile.clubs?.name}
-        profilePictureUrl={profile.profile_picture_url}
-      />
+    <div className="max-w-lg mx-auto">
+      {/* Profile Header */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center text-white text-2xl font-bold">
+            {profile.first_name.charAt(0)}
+          </div>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-black">
+              {profile.first_name} {profile.last_name}
+            </h1>
+            {profile.nickname && (
+              <p className="text-sm text-gray-600">({profile.nickname})</p>
+            )}
+            <p className="text-sm text-gray-500 mt-1">{profile.clubs?.name}</p>
+          </div>
+        </div>
+      </div>
 
-      <div className="mx-auto max-w-7xl p-6">
-        {/* Statistics Cards */}
-        <div className="mb-8">
-          <DashboardStats
-            totalAttendance={totalAttendance || 0}
-            monthlyAttendance={monthlyAttendance || 0}
-            totalPerformance={totalPerformance || 0}
-            progressPercentage={progressPercentage}
-          />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4 text-black" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-black">{totalAttendance || 0}</p>
+          <p className="text-xs text-gray-600">ครั้งทั้งหมด</p>
         </div>
 
-        {/* Upcoming Sessions Banner */}
-        {upcomingSessionsCount && upcomingSessionsCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-black" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-black">{monthlyAttendance || 0}</p>
+          <p className="text-xs text-gray-600">เดือนนี้</p>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-black" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-black">{totalPerformance || 0}</p>
+          <p className="text-xs text-gray-600">ผลการทดสอบ</p>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Award className="w-4 h-4 text-black" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-black">{progressPercentage}%</p>
+          <p className="text-xs text-gray-600">ความก้าวหน้า</p>
+        </div>
+      </div>
+
+      {/* Upcoming Sessions */}
+      {upcomingSessionsCount && upcomingSessionsCount > 0 && (
+        <Link
+          href="/dashboard/athlete/schedule"
+          className="block bg-black border border-gray-200 rounded-2xl p-5 mb-4 text-white hover:bg-gray-900 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm opacity-75">การฝึกซ้อมที่กำลังจะมาถึง</p>
+              <p className="text-2xl font-bold mt-1">{upcomingSessionsCount} รายการ</p>
+            </div>
+            <CalendarDays className="w-10 h-10 opacity-60" />
+          </div>
+        </Link>
+      )}
+
+      {/* Quick Actions */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <h2 className="text-sm font-semibold text-black mb-4">เมนูด่วน</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <Link
+            href="/dashboard/athlete/activities"
+            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-700 text-center">กิจกรรม</span>
+          </Link>
+
           <Link
             href="/dashboard/athlete/schedule"
-            className="mb-8 block rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white shadow-lg transition-transform hover:scale-[1.02]"
+            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-white/20 p-3">
-                  <CalendarDays className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    มีการฝึกซ้อมที่กำลังจะมาถึง
-                  </h3>
-                  <p className="text-sm text-blue-100">
-                    {upcomingSessionsCount} รายการ - คลิกเพื่อดูตารางเต็ม
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <CalendarDays className="w-6 h-6 text-black" />
+            </div>
+            <span className="text-xs text-gray-700 text-center">ตารางฝึก</span>
+          </Link>
+
+          <Link
+            href="/dashboard/athlete/performance"
+            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-black" />
+            </div>
+            <span className="text-xs text-gray-700 text-center">ผลทดสอบ</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      {(recentAttendance && recentAttendance.length > 0) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <h2 className="text-sm font-semibold text-black mb-4">กิจกรรมล่าสุด</h2>
+          <div className="space-y-3">
+            {recentAttendance.slice(0, 3).map((attendance) => (
+              <div key={attendance.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl">
+                <div className={`w-2 h-2 rounded-full ${
+                  attendance.status === 'present' ? 'bg-black' : 'bg-gray-400'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-black truncate">
+                    {attendance.training_sessions?.session_name || 'การฝึกซ้อม'}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {new Date(attendance.session_date).toLocaleDateString('th-TH', {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
                   </p>
                 </div>
+                <span className={`text-xs px-2 py-1 rounded-full border ${
+                  attendance.status === 'present' 
+                    ? 'bg-black text-white border-black' 
+                    : 'bg-white text-gray-700 border-gray-300'
+                }`}>
+                  {attendance.status === 'present' ? 'เข้าร่วม' : 'ขาด'}
+                </span>
               </div>
-              <div className="text-3xl font-bold">{upcomingSessionsCount}</div>
-            </div>
-          </Link>
-        )}
-
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <QuickActions />
+            ))}
+          </div>
         </div>
-
-        {/* Recent Activity */}
-        <RecentActivity
-          recentAttendance={recentAttendance}
-          recentPerformance={recentPerformance}
-        />
-      </div>
+      )}
     </div>
   );
 }

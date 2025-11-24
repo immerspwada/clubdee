@@ -57,6 +57,8 @@ interface FormState {
     id_card: DocumentInfo | null;
     house_registration: DocumentInfo | null;
     birth_certificate: DocumentInfo | null;
+    parent_id_card: DocumentInfo | null;
+    parent_house_registration: DocumentInfo | null;
   };
   clubId: string;
 }
@@ -73,10 +75,12 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     },
     personalInfo: {
       full_name: '',
+      nickname: '',
+      gender: '' as any,
+      date_of_birth: '',
       phone_number: '',
       address: '',
       emergency_contact: '',
-      date_of_birth: '',
       blood_type: '',
       medical_conditions: '',
     },
@@ -84,6 +88,8 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       id_card: null,
       house_registration: null,
       birth_certificate: null,
+      parent_id_card: null,
+      parent_house_registration: null,
     },
     clubId: '',
   });
@@ -139,13 +145,19 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     const errors: Record<string, string> = {};
     
     if (!formData.documents.id_card || !formData.documents.id_card.url) {
-      errors.id_card = 'กรุณาอัปโหลดรูปบัตรประชาชน';
+      errors.id_card = 'กรุณาอัปโหลดรูปบัตรประชาชนนักกีฬา';
     }
     if (!formData.documents.house_registration || !formData.documents.house_registration.url) {
-      errors.house_registration = 'กรุณาอัปโหลดรูปทะเบียนบ้าน';
+      errors.house_registration = 'กรุณาอัปโหลดรูปทะเบียนบ้านนักกีฬา';
     }
     if (!formData.documents.birth_certificate || !formData.documents.birth_certificate.url) {
       errors.birth_certificate = 'กรุณาอัปโหลดรูปสูติบัตร';
+    }
+    if (!formData.documents.parent_id_card || !formData.documents.parent_id_card.url) {
+      errors.parent_id_card = 'กรุณาอัปโหลดรูปบัตรประชาชนผู้ปกครอง';
+    }
+    if (!formData.documents.parent_house_registration || !formData.documents.parent_house_registration.url) {
+      errors.parent_house_registration = 'กรุณาอัปโหลดรูปทะเบียนบ้านผู้ปกครอง';
     }
 
     setValidationErrors(errors);
@@ -433,7 +445,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
               />
               {submitError && (
                 <>
-                  {submitError.includes('ลองสมัครบ่อยเกินไป') ? (
+                  {submitError.includes('ลองสมัครบ่อยเกินไป') || submitError.includes('rate') || submitError.includes('too many') ? (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <div className="flex items-start space-x-3 mb-3">
                         <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -441,18 +453,30 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                           <p className="text-sm text-yellow-800 font-medium mb-1">
                             ⏰ ระบบตรวจพบการสมัครบ่อยเกินไป
                           </p>
-                          <p className="text-xs text-yellow-700">
-                            เพื่อความปลอดภัย ระบบจำกัดจำนวนการสมัครต่อชั่วโมง
+                          <p className="text-xs text-yellow-700 mb-2">
+                            เพื่อความปลอดภัย ระบบจำกัดจำนวนการสมัครต่อชั่วโมง (3-5 ครั้งต่อ IP address)
+                          </p>
+                          <p className="text-xs text-yellow-700 font-medium">
+                            ⚠️ Rate limit อาจใช้เวลา 2-24 ชั่วโมงในการรีเซ็ต
                           </p>
                         </div>
                       </div>
-                      <div className="bg-yellow-100 rounded p-3 text-xs text-yellow-800">
-                        <p className="font-medium mb-2">💡 วิธีแก้ไข:</p>
-                        <ul className="list-disc list-inside space-y-1 ml-2">
-                          <li>รอ 1-2 ชั่วโมง แล้วลองใหม่อีกครั้ง</li>
-                          <li>ลองใช้ mobile data แทน WiFi</li>
-                          <li>หากมีปัญหา กรุณาติดต่อเจ้าหน้าที่</li>
-                        </ul>
+                      <div className="bg-yellow-100 rounded p-3 text-xs text-yellow-800 space-y-3">
+                        <div>
+                          <p className="font-medium mb-2">💡 วิธีแก้ไขทันที (แนะนำ):</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li><strong>เปลี่ยน IP address:</strong> ใช้ mobile hotspot หรือ mobile data แทน WiFi</li>
+                            <li><strong>ใช้ VPN:</strong> เปลี่ยน location แล้วลองใหม่</li>
+                            <li><strong>ใช้เครือข่ายอื่น:</strong> ลองจากสถานที่อื่น (บ้าน/ออฟฟิศ/ร้านกาแฟ)</li>
+                          </ul>
+                        </div>
+                        <div className="border-t border-yellow-200 pt-2">
+                          <p className="font-medium mb-2">⏰ หรือรอให้ Rate Limit หมดอายุ:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>รอ 2-24 ชั่วโมง แล้วลองใหม่อีกครั้ง</li>
+                            <li>ติดต่อเจ้าหน้าที่เพื่อขอความช่วยเหลือ</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -515,6 +539,30 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                 error={validationErrors.birth_certificate}
                 userId={userId}
               />
+
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">เอกสารผู้ปกครอง</h3>
+                
+                <DocumentUpload
+                  documentType="parent_id_card"
+                  value={formData.documents.parent_id_card?.url}
+                  onChange={(url, fileName, fileSize) => 
+                    handleDocumentChange('parent_id_card', url ? { url, file_name: fileName || '', file_size: fileSize || 0 } : null)
+                  }
+                  error={validationErrors.parent_id_card}
+                  userId={userId}
+                />
+
+                <DocumentUpload
+                  documentType="parent_house_registration"
+                  value={formData.documents.parent_house_registration?.url}
+                  onChange={(url, fileName, fileSize) => 
+                    handleDocumentChange('parent_house_registration', url ? { url, file_name: fileName || '', file_size: fileSize || 0 } : null)
+                  }
+                  error={validationErrors.parent_house_registration}
+                  userId={userId}
+                />
+              </div>
             </div>
           )}
 

@@ -1,14 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { TrendingUp, ChevronLeft, Activity } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import { PerformanceHistoryClient } from '@/components/athlete/PerformanceHistoryClient';
+import { PerformanceTrendAnalysis } from '@/components/athlete/PerformanceTrendAnalysis';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PerformanceRecord {
   id: string;
   test_date: string;
   test_type: string;
-  result_value: number;
-  result_unit: string;
+  test_name: string;
+  score: number;
+  unit: string;
   notes?: string;
   coaches?: {
     first_name: string;
@@ -57,8 +61,8 @@ export default async function PerformanceHistoryPage() {
   };
 
   // Group by test type for statistics
-  const testTypes = new Set(
-    performanceRecords?.map((r) => r.test_type) || []
+  const testTypes = Array.from(
+    new Set(performanceRecords?.map((r) => r.test_type) || [])
   );
 
   return (
@@ -94,7 +98,7 @@ export default async function PerformanceHistoryPage() {
             <div className="rounded-lg bg-blue-50 p-4">
               <p className="text-sm text-blue-600">ประเภทการทดสอบ</p>
               <p className="mt-1 text-2xl font-bold text-blue-900">
-                {testTypes.size}
+                {testTypes.length}
               </p>
             </div>
             <div className="rounded-lg bg-green-50 p-4">
@@ -117,70 +121,26 @@ export default async function PerformanceHistoryPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-7xl p-6">
-        <div className="rounded-lg bg-white shadow">
-          {performanceRecords && performanceRecords.length > 0 ? (
-            <div className="divide-y">
-              {performanceRecords.map((record) => (
-                <div key={record.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="mt-1 rounded-full bg-purple-100 p-2">
-                        <Activity className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {record.test_type}
-                        </h3>
-                        <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
-                          <span>
-                            {new Date(record.test_date).toLocaleDateString(
-                              'th-TH',
-                              {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                weekday: 'long',
-                              }
-                            )}
-                          </span>
-                          {record.coaches && (
-                            <span className="text-gray-500">
-                              โดย {record.coaches.first_name}{' '}
-                              {record.coaches.last_name}
-                            </span>
-                          )}
-                        </div>
-                        {record.notes && (
-                          <p className="mt-2 text-sm text-gray-600">
-                            {record.notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-purple-600">
-                        {record.result_value}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {record.result_unit}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-12 text-center">
-              <TrendingUp className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">
-                ยังไม่มีผลการทดสอบ
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                เมื่อโค้ชบันทึกผลการทดสอบของคุณ จะแสดงที่นี่
-              </p>
-            </div>
-          )}
-        </div>
+        <Tabs defaultValue="history" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="history">ประวัติการทดสอบ</TabsTrigger>
+            <TabsTrigger value="trends">วิเคราะห์แนวโน้ม</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="history">
+            <PerformanceHistoryClient
+              records={performanceRecords || []}
+              testTypes={testTypes}
+            />
+          </TabsContent>
+
+          <TabsContent value="trends">
+            <PerformanceTrendAnalysis
+              records={performanceRecords || []}
+              testTypes={testTypes}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

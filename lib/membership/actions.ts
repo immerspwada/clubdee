@@ -431,6 +431,21 @@ async function createAthleteProfile(
       };
     }
 
+    // Validate required fields from new registration form
+    if (!(personalInfo as any).gender) {
+      return { 
+        success: false, 
+        error: 'ข้อมูลเพศไม่ครบถ้วน' 
+      };
+    }
+
+    if (!(personalInfo as any).date_of_birth) {
+      return { 
+        success: false, 
+        error: 'ข้อมูลวันเกิดไม่ครบถ้วน' 
+      };
+    }
+
     // Step 3: Parse full_name into first_name and last_name
     const nameParts = personalInfo.full_name.trim().split(/\s+/);
     const firstName = nameParts[0] || '';
@@ -446,11 +461,11 @@ async function createAthleteProfile(
       club_id: application.club_id,
       first_name: firstName,
       last_name: lastName,
-      nickname: null,
-      date_of_birth: personalInfo.date_of_birth || '2000-01-01', // Default if not provided
+      nickname: (personalInfo as any).nickname || null,
+      date_of_birth: (personalInfo as any).date_of_birth,
       phone_number: personalInfo.phone_number,
       email: userEmail,
-      gender: 'other', // Default, can be updated later
+      gender: (personalInfo as any).gender,
       health_notes: personalInfo.medical_conditions || null,
       profile_picture_url: null,
     };

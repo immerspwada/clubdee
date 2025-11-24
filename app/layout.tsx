@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   title: 'Sports Club Management',
   description:
     'Comprehensive sports club management system for athletes, coaches, and administrators',
+  themeColor: '#ffffff',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Sports Club',
+  },
 };
 
 export const viewport: Viewport = {
@@ -24,6 +30,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

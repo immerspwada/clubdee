@@ -19,14 +19,16 @@ export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'info_requ
 // Membership Status Types
 export type MembershipStatus = 'pending' | 'active' | 'rejected' | 'suspended';
 
-export type DocumentType = 'id_card' | 'house_registration' | 'birth_certificate';
+export type DocumentType = 'id_card' | 'house_registration' | 'birth_certificate' | 'parent_id_card' | 'parent_house_registration';
 
 export interface PersonalInfo {
   full_name: string;
+  nickname?: string;
+  gender: 'male' | 'female' | 'other';
+  date_of_birth: string;
   phone_number: string;
   address: string;
   emergency_contact: string;
-  date_of_birth?: string;
   blood_type?: string;
   medical_conditions?: string;
 }

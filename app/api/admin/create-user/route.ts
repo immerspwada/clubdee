@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .single();
 
-    const isAdmin = profile?.role === 'admin' || userRole?.role === 'admin';
+    const isAdmin = (profile as any)?.role === 'admin' || (userRole as any)?.role === 'admin';
 
     if (!isAdmin) {
       return NextResponse.json(
@@ -48,11 +48,19 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { email, password, full_name } = body;
+    const { email, password, full_name, role = 'athlete', club_id } = body;
 
     if (!email || !password || !full_name) {
       return NextResponse.json(
         { error: 'Missing required fields: email, password, full_name' },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    if (!['admin', 'coach', 'athlete'].includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role. Must be admin, coach, or athlete' },
         { status: 400 }
       );
     }
@@ -82,33 +90,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get first available club
-    const { data: clubs } = await supabase
-      .from('clubs')
-      .select('id')
-      .limit(1);
+    const userId = (newUser.user as any).id;
 
-    const clubId = clubs && clubs.length > 0 ? clubs[0].id : null;
+    // Get club ID (use provided club_id or first available club)
+    let clubId = club_id;
+    
+    if (!clubId && (role === 'coach' || role === 'athlete')) {
+      const { data: clubs } = await supabase
+        .from('clubs')
+        .select('id')
+        .limit(1);
+      
+      clubId = clubs && clubs.length > 0 ? (clubs[0] as any).id : null;
+    }
 
     // Create profile
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({
-        id: newUser.user.id,
+        id: userId,
         email,
         full_name,
-        role: 'athlete',
+        role: role as any,
         club_id: clubId,
         membership_status: 'active',
-      });
+      } as any);
 
     if (profileError) {
       console.error('Error creating profile:', profileError);
       // Don't fail the request, profile can be created later
     }
 
-    // Create athlete record if club exists
-    if (clubId) {
+    // Create user_roles record
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .insert({
+        user_id: userId,
+        role: role as any,
+      } as any);
+
+    if (roleError) {
+      console.error('Error creating user_roles:', roleError);
+    }
+
+    // Create athlete record if role is athlete and club exists
+    if (role === 'athlete' && clubId) {
       const nameParts = full_name.split(' ');
       const firstName = nameParts[0] || full_name;
       const lastName = nameParts.slice(1).join(' ') || '';
@@ -116,14 +142,14 @@ export async function POST(request: NextRequest) {
       const { error: athleteError } = await supabase
         .from('athletes')
         .insert({
-          user_id: newUser.user.id,
+          user_id: userId,
           club_id: clubId,
           email,
           first_name: firstName,
           last_name: lastName,
           date_of_birth: '2000-01-01',
           phone_number: '0000000000',
-        });
+        } as any);
 
       if (athleteError) {
         console.error('Error creating athlete:', athleteError);
@@ -131,11 +157,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Note: coaches table doesn't exist in current schema
+    // Coach users are identified by their role in profiles and user_roles tables
+
     return NextResponse.json({
       success: true,
       user: {
-        id: newUser.user.id,
-        email: newUser.user.email,
+        id: userId,
+        email: (newUser.user as any).email,
       },
       message: 'User created successfully',
     });
