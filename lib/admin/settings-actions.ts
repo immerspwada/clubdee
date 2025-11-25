@@ -102,7 +102,7 @@ export async function updateSystemSetting(
     }
 
     // Update setting using the helper function
-    const { error } = await supabase.rpc('update_system_setting', {
+    const { error } = await (supabase as any).rpc('update_system_setting', {
       p_key: settingKey,
       p_value: value,
       p_updated_by: user.id,
@@ -130,7 +130,7 @@ export async function getSystemSetting(
     const supabase = await createClient();
 
     // Get setting using the helper function
-    const { data, error } = await supabase.rpc('get_system_setting', {
+    const { data, error } = await (supabase as any).rpc('get_system_setting', {
       p_key: settingKey,
     });
 

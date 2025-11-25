@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sanitizeObject, sanitizeInput } from './sanitization';
-import { z, ZodSchema } from 'zod';
+import { z, ZodType } from 'zod';
 
 export interface ApiValidationError {
   field: string;
@@ -45,7 +45,7 @@ export function createErrorResponse(
  */
 export async function validateRequestBody<T>(
   request: NextRequest,
-  schema: ZodSchema<T>
+  schema: ZodType<T>
 ): Promise<{ success: true; data: T } | { success: false; response: NextResponse }> {
   try {
     const body = await request.json();
@@ -57,7 +57,7 @@ export async function validateRequestBody<T>(
     const result = schema.safeParse(sanitized);
 
     if (!result.success) {
-      const errors: ApiValidationError[] = result.error.errors.map((err) => ({
+      const errors: ApiValidationError[] = (result.error as any).errors.map((err: any) => ({
         field: err.path.join('.'),
         message: err.message,
         code: err.code,
@@ -91,7 +91,7 @@ export async function validateRequestBody<T>(
  */
 export function validateQueryParams(
   request: NextRequest,
-  schema: ZodSchema
+  schema: ZodType
 ): { success: true; data: any } | { success: false; response: NextResponse } {
   try {
     const { searchParams } = new URL(request.url);
@@ -104,7 +104,7 @@ export function validateQueryParams(
     const result = schema.safeParse(params);
 
     if (!result.success) {
-      const errors: ApiValidationError[] = result.error.errors.map((err) => ({
+      const errors: ApiValidationError[] = (result.error as any).errors.map((err: any) => ({
         field: err.path.join('.'),
         message: err.message,
         code: err.code,

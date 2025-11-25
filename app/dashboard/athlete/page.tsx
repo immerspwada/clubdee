@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { CalendarDays, TrendingUp, Award, Clock, Bell } from 'lucide-react';
+import { CalendarDays, TrendingUp, Award, Clock, Bell, Users, FileText, Activity } from 'lucide-react';
 import Link from 'next/link';
+import { RecommendationCard } from '@/components/athlete/RecommendationCard';
 
 interface AthleteProfile {
   id: string;
@@ -76,31 +77,54 @@ export default async function AthleteDashboard() {
             <p><strong>Email:</strong> {user.email}</p>
             {profileError && <p className="text-red-600"><strong>Error:</strong> {profileError.message}</p>}
           </div>
-          <Link
-            href="/logout"
-            className="mt-6 inline-block w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 text-center"
-          >
-            ออกจากระบบ
-          </Link>
+          <div className="mt-6 space-y-2">
+            <Link
+              href="/dashboard/athlete/applications"
+              className="block w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 text-center"
+            >
+              ดูใบสมัครของฉัน
+            </Link>
+            <Link
+              href="/logout"
+              className="block w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 text-center"
+            >
+              ออกจากระบบ
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Get statistics
-  const { count: totalAttendance } = await supabase
+  // Calculate date ranges
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get statistics with error handling
+  const { count: totalAttendance, error: totalAttError } = await supabase
     .from('attendance_logs')
     .select('*', { count: 'exact', head: true })
     .eq('athlete_id', profile.id)
     .eq('status', 'present');
 
-  const { count: totalPerformance } = await supabase
+  const { count: monthlyAttendance, error: monthlyAttError } = await supabase
+    .from('attendance_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('athlete_id', profile.id)
+    .eq('status', 'present')
+    .gte('session_date', startOfMonth.toISOString());
+
+  const { count: totalPerformance, error: perfError } = await supabase
     .from('performance_records')
     .select('*', { count: 'exact', head: true })
     .eq('athlete_id', profile.id);
 
   // Get recent attendance (last 5)
-  const { data: recentAttendance } = (await supabase
+  const { data: recentAttendance, error: recentAttError } = (await supabase
     .from('attendance_logs')
     .select(
       `
@@ -113,55 +137,274 @@ export default async function AthleteDashboard() {
     )
     .eq('athlete_id', profile.id)
     .order('session_date', { ascending: false })
-    .limit(5)) as { data: AttendanceLog[] | null };
+    .limit(5)) as { data: AttendanceLog[] | null; error: any };
 
   // Get recent performance records (last 5)
-  const { data: recentPerformance } = (await supabase
+  const { data: recentPerformance, error: recentPerfError } = (await supabase
     .from('performance_records')
     .select('*')
     .eq('athlete_id', profile.id)
     .order('test_date', { ascending: false })
-    .limit(5)) as { data: PerformanceRecord[] | null };
+    .limit(5)) as { data: PerformanceRecord[] | null; error: any };
 
-  // Get announcements from club coaches
-  const { data: announcements } = await supabase
-    .from('announcements')
-    .select(`
-      *,
-      announcement_reads!left(user_id)
-    `)
-    .order('is_pinned', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(5);
+  // Get announcements from club coaches (only if club exists)
+  let announcements = null;
+  if (profile.clubs?.id) {
+    const { data, error: annError } = await supabase
+      .from('announcements')
+      .select(`
+        *,
+        announcement_reads!left(user_id)
+      `)
+      .eq('club_id', profile.clubs.id)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    announcements = data;
+  }
 
-  // Calculate attendance this month
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Get upcoming sessions count (only if club exists)
+  let upcomingSessionsCount = 0;
+  if (profile.clubs?.id) {
+    const { count, error: sessError } = await supabase
+      .from('training_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('club_id', profile.clubs.id)
+      .gte('session_date', today.toISOString());
+    
+    upcomingSessionsCount = count || 0;
+  }
 
-  const { count: monthlyAttendance } = await supabase
-    .from('attendance_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('athlete_id', profile.id)
-    .eq('status', 'present')
-    .gte('session_date', startOfMonth.toISOString());
-
-  // Get upcoming sessions count
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const { count: upcomingSessionsCount } = await supabase
-    .from('training_sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('club_id', profile.clubs?.id || '')
-    .gte('session_date', today.toISOString());
-
-  const progressPercentage = totalPerformance
-    ? Math.min(100, totalPerformance * 10)
+  // Calculate attendance rate as progress percentage
+  const totalSessions = (totalAttendance || 0) + (monthlyAttendance || 0);
+  const progressPercentage = totalSessions > 0 
+    ? Math.round(((totalAttendance || 0) / Math.max(totalSessions, 1)) * 100)
     : 0;
+
+  // Generate smart recommendations
+  const recommendations = [];
+
+  // Priority 1: No club membership
+  if (!profile.clubs?.id) {
+    recommendations.push({
+      id: 'join-club',
+      title: 'เข้าร่วมสโมสรเพื่อเริ่มต้น',
+      description: 'คุณยังไม่ได้เป็นสมาชิกสโมสร กรุณาสมัครเพื่อเข้าถึงฟีเจอร์ทั้งหมด',
+      action: 'สมัครเข้าสโมสร',
+      href: '/dashboard/athlete/applications',
+      priority: 'high' as const,
+      icon: <Users className="w-5 h-5 text-red-600" />,
+    });
+  }
+
+  // Priority 2: Unread announcements
+  if (announcements && announcements.length > 0) {
+    const unreadCount = announcements.filter(
+      (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
+    ).length;
+    
+    if (unreadCount > 0) {
+      recommendations.push({
+        id: 'unread-announcements',
+        title: `คุณมีประกาศใหม่ ${unreadCount} รายการ`,
+        description: 'โค้ชได้ประกาศข้อมูลสำคัญ อ่านเพื่อไม่พลาดข่าวสาร',
+        action: 'อ่านประกาศ',
+        href: '/dashboard/athlete/announcements',
+        priority: 'high' as const,
+        icon: <Bell className="w-5 h-5 text-red-600" />,
+      });
+    }
+  }
+
+  // Priority 3: Today's sessions
+  if (profile.clubs?.id) {
+    const { data: todaySessions } = await supabase
+      .from('training_sessions')
+      .select('id, session_name, start_time')
+      .eq('club_id', profile.clubs.id)
+      .gte('session_date', today.toISOString())
+      .lt('session_date', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString())
+      .limit(1);
+
+    if (todaySessions && todaySessions.length > 0) {
+      recommendations.push({
+        id: 'today-session',
+        title: 'มีการฝึกซ้อมวันนี้',
+        description: `${todaySessions[0].session_name} - อย่าลืมเช็คอินเมื่อถึงเวลา`,
+        action: 'ดูรายละเอียด',
+        href: '/dashboard/athlete/schedule',
+        priority: 'high' as const,
+        icon: <CalendarDays className="w-5 h-5 text-red-600" />,
+      });
+    }
+  }
+
+  // Priority 4: Tomorrow's sessions
+  if (profile.clubs?.id) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+    const { data: tomorrowSessions } = await supabase
+      .from('training_sessions')
+      .select('id, session_name, start_time')
+      .eq('club_id', profile.clubs.id)
+      .gte('session_date', tomorrow.toISOString())
+      .lt('session_date', dayAfterTomorrow.toISOString())
+      .limit(1);
+
+    if (tomorrowSessions && tomorrowSessions.length > 0) {
+      recommendations.push({
+        id: 'tomorrow-session',
+        title: 'เตรียมตัวสำหรับพรุ่งนี้',
+        description: `${tomorrowSessions[0].session_name} - เตรียมอุปกรณ์และพักผ่อนให้เพียงพอ`,
+        action: 'ดูตารางฝึก',
+        href: '/dashboard/athlete/schedule',
+        priority: 'medium' as const,
+        icon: <CalendarDays className="w-5 h-5 text-yellow-600" />,
+      });
+    }
+  }
+
+  // Priority 5: Low attendance this month
+  if (profile.clubs?.id && (monthlyAttendance || 0) < 4 && (monthlyAttendance || 0) > 0) {
+    recommendations.push({
+      id: 'low-attendance',
+      title: 'เพิ่มความสม่ำเสมอในการฝึก',
+      description: `คุณเข้าฝึกเพียง ${monthlyAttendance || 0} ครั้งในเดือนนี้ พยายามเข้าฝึกให้สม่ำเสมอเพื่อพัฒนาทักษะ`,
+      action: 'ดูตารางฝึก',
+      href: '/dashboard/athlete/schedule',
+      priority: 'medium' as const,
+      icon: <Activity className="w-5 h-5 text-yellow-600" />,
+    });
+  }
+
+  // Priority 6: Great attendance streak
+  if (profile.clubs?.id && (monthlyAttendance || 0) >= 8) {
+    recommendations.push({
+      id: 'great-attendance',
+      title: 'เยี่ยมมาก! คุณมีความสม่ำเสมอสูง',
+      description: `คุณเข้าฝึก ${monthlyAttendance} ครั้งในเดือนนี้ รักษาฟอร์มนี้ไว้นะ!`,
+      action: 'ดูสถิติ',
+      href: '/dashboard/athlete/attendance',
+      priority: 'low' as const,
+      icon: <Award className="w-5 h-5 text-blue-600" />,
+    });
+  }
+
+  // Priority 7: No performance records
+  if (profile.clubs?.id && (totalPerformance || 0) === 0) {
+    recommendations.push({
+      id: 'no-performance',
+      title: 'ยังไม่มีผลการทดสอบ',
+      description: 'ติดตามผลการทดสอบของคุณเพื่อดูความก้าวหน้าและพัฒนาตนเอง',
+      action: 'ดูผลทดสอบ',
+      href: '/dashboard/athlete/performance',
+      priority: 'low' as const,
+      icon: <TrendingUp className="w-5 h-5 text-blue-600" />,
+    });
+  }
+
+  // Priority 8: Recent performance improvement
+  if (recentPerformance && recentPerformance.length >= 2) {
+    const latest = recentPerformance[0];
+    const previous = recentPerformance[1];
+    if (latest.result_value > previous.result_value && latest.test_type === previous.test_type) {
+      recommendations.push({
+        id: 'performance-improved',
+        title: 'ผลการทดสอบของคุณดีขึ้น!',
+        description: `${latest.test_type} ของคุณพัฒนาขึ้น ทำได้ดีมาก!`,
+        action: 'ดูรายละเอียด',
+        href: '/dashboard/athlete/performance',
+        priority: 'low' as const,
+        icon: <TrendingUp className="w-5 h-5 text-blue-600" />,
+      });
+    }
+  }
+
+  // Priority 9: Check activities
+  if (profile.clubs?.id && upcomingSessionsCount === 0) {
+    recommendations.push({
+      id: 'check-activities',
+      title: 'ตรวจสอบกิจกรรมใหม่',
+      description: 'ดูกิจกรรมและการฝึกซ้อมที่กำลังจะมาถึง เพื่อวางแผนการเข้าร่วม',
+      action: 'ดูกิจกรรม',
+      href: '/dashboard/athlete/activities',
+      priority: 'low' as const,
+      icon: <FileText className="w-5 h-5 text-blue-600" />,
+    });
+  }
+
+  // Priority 10: Profile completion
+  if (!profile.nickname || !profile.profile_picture_url) {
+    recommendations.push({
+      id: 'complete-profile',
+      title: 'ทำโปรไฟล์ให้สมบูรณ์',
+      description: 'เพิ่มรูปโปรไฟล์และชื่อเล่นเพื่อให้โค้ชและเพื่อนๆ รู้จักคุณมากขึ้น',
+      action: 'แก้ไขโปรไฟล์',
+      href: '/dashboard/athlete/profile/edit',
+      priority: 'low' as const,
+      icon: <Users className="w-5 h-5 text-blue-600" />,
+    });
+  }
+
+  // Priority 11: Long time no activity
+  if (recentAttendance && recentAttendance.length > 0) {
+    const lastAttendance = new Date(recentAttendance[0].session_date);
+    const daysSinceLastAttendance = Math.floor((today.getTime() - lastAttendance.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceLastAttendance > 7 && profile.clubs?.id) {
+      recommendations.push({
+        id: 'long-absence',
+        title: 'คิดถึงคุณแล้ว!',
+        description: `คุณไม่ได้เข้าฝึกมา ${daysSinceLastAttendance} วันแล้ว กลับมาฝึกกับเราอีกครั้งนะ`,
+        action: 'ดูตารางฝึก',
+        href: '/dashboard/athlete/schedule',
+        priority: 'medium' as const,
+        icon: <Activity className="w-5 h-5 text-yellow-600" />,
+      });
+    }
+  }
+
+  // Sort by priority and limit to top 3
+  const sortedRecommendations = recommendations
+    .sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 3);
 
   return (
     <div className="max-w-lg mx-auto">
+      {/* No Club Warning */}
+      {!profile.clubs?.id && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-1">
+                คุณยังไม่ได้เข้าร่วมสโมสร
+              </h3>
+              <p className="text-xs text-yellow-700 mb-2">
+                กรุณาสมัครเข้าร่วมสโมสรเพื่อเข้าถึงฟีเจอร์ทั้งหมด
+              </p>
+              <Link
+                href="/dashboard/athlete/applications"
+                className="inline-block text-xs font-medium text-yellow-900 underline hover:text-yellow-800"
+              >
+                ดูใบสมัครของฉัน →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile Header */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4">
@@ -175,10 +418,15 @@ export default async function AthleteDashboard() {
             {profile.nickname && (
               <p className="text-sm text-gray-600">({profile.nickname})</p>
             )}
-            <p className="text-sm text-gray-500 mt-1">{profile.clubs?.name}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {profile.clubs?.name || 'ยังไม่ได้เข้าร่วมสโมสร'}
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Recommendations */}
+      <RecommendationCard recommendations={sortedRecommendations} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4">

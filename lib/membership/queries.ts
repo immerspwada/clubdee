@@ -321,7 +321,7 @@ export async function validateClubSelection(clubId: string) {
     if (!coachCount || coachCount === 0) {
       return { 
         valid: false, 
-        error: `กีฬา ${club.name} ยังไม่มีโค้ช ไม่สามารถรับสมัครได้ในขณะนี้` 
+        error: `กีฬา ${(club as any).name} ยังไม่มีโค้ช ไม่สามารถรับสมัครได้ในขณะนี้` 
       };
     }
 

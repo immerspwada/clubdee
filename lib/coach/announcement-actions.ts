@@ -69,10 +69,10 @@ export async function createAnnouncement(input: CreateAnnouncementInput) {
   }
 
   // Create announcement with sanitized data
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('announcements')
     .insert({
-      coach_id: coach.id,
+      coach_id: (coach as any).id,
       title: sanitizedTitle,
       message: sanitizedMessage,
       priority: input.priority || 'normal',
@@ -108,7 +108,7 @@ export async function updateAnnouncement(input: UpdateAnnouncementInput) {
 
   const { id, ...updates } = input;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('announcements')
     .update(updates)
     .eq('id', id)
@@ -175,7 +175,7 @@ export async function getCoachAnnouncements() {
   }
 
   // Get announcements with read statistics
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('announcements')
     .select(
       `
@@ -183,7 +183,7 @@ export async function getCoachAnnouncements() {
       announcement_reads(count)
     `
     )
-    .eq('coach_id', coach.id)
+    .eq('coach_id', (coach as any).id)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -207,7 +207,7 @@ export async function markAnnouncementAsRead(announcementId: string) {
   }
 
   // Insert or ignore if already exists
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('announcement_reads')
     .upsert(
       {

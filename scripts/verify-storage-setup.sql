@@ -1,42 +1,43 @@
--- ============================================================================
--- Verify Storage Bucket and RLS Policies Setup
--- ============================================================================
+-- ตรวจสอบ Storage Bucket และ Policies
 
--- Check bucket configuration
+-- 1. ตรวจสอบ bucket
 SELECT 
-  '=== Storage Bucket ===' as section,
+  '=== Storage Bucket ===' as section;
+
+SELECT 
   id,
   name,
   public,
-  file_size_limit,
+  file_size_limit / 1024 / 1024 as size_limit_mb,
   allowed_mime_types,
   created_at
 FROM storage.buckets
-WHERE id = 'membership-documents';
+WHERE name = 'membership-documents';
 
--- Check RLS policies
+-- 2. ตรวจสอบ policies
 SELECT 
-  '=== RLS Policies ===' as section,
+  '=== Storage Policies ===' as section;
+
+SELECT 
+  schemaname,
+  tablename,
   policyname,
-  cmd as operation,
+  permissive,
   roles,
-  CASE 
-    WHEN policyname LIKE '%upload%' THEN 'Allow users to upload files'
-    WHEN policyname LIKE '%view%' AND policyname LIKE '%own%' THEN 'Allow users to view their files'
-    WHEN policyname LIKE '%update%' THEN 'Allow users to update their files'
-    WHEN policyname LIKE '%delete%' THEN 'Allow users to delete their files'
-    WHEN policyname LIKE '%coach%' THEN 'Allow coaches to view applicant files'
-    WHEN policyname LIKE '%admin%' THEN 'Allow admins to view all files'
-    ELSE 'Other policy'
-  END as description
+  cmd
 FROM pg_policies
 WHERE schemaname = 'storage'
-AND tablename = 'objects'
-AND policyname LIKE '%documents%'
-ORDER BY cmd, policyname;
+  AND tablename = 'objects'
+ORDER BY policyname;
 
--- Summary
+-- 3. ตรวจสอบจำนวนไฟล์ในแต่ละ bucket
 SELECT 
-  '=== Summary ===' as section,
-  (SELECT COUNT(*) FROM storage.buckets WHERE id = 'membership-documents') as bucket_exists,
-  (SELECT COUNT(*) FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname LIKE '%documents%') as policy_count;
+  '=== Files per Bucket ===' as section;
+
+SELECT 
+  bucket_id,
+  COUNT(*) as file_count,
+  SUM((metadata->>'size')::bigint) / 1024 / 1024 as total_size_mb
+FROM storage.objects
+GROUP BY bucket_id
+ORDER BY file_count DESC;

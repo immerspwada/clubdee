@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { logError, logRegistrationStep } from '@/lib/monitoring/error-logger';
 export interface AuthResult {
   success: boolean;
   error?: string;

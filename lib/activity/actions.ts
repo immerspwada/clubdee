@@ -77,7 +77,7 @@ export async function generateQRCode(activityId: string) {
   }
 
   // Generate QR token using database function
-  const { data, error } = await supabase.rpc('generate_activity_qr_token', {
+  const { data, error } = await (supabase as any).rpc('generate_activity_qr_token', {
     p_activity_id: activityId,
   });
 
@@ -102,7 +102,7 @@ export async function registerForActivity(activityId: string, notes?: string) {
   }
 
   // Get athlete profile
-  const { data: athlete } = await supabase
+  const { data: athlete } = await (supabase as any)
     .from('athletes')
     .select('id, club_id')
     .eq('user_id', user.id)
@@ -113,7 +113,7 @@ export async function registerForActivity(activityId: string, notes?: string) {
   }
 
   // Check if activity requires registration
-  const { data: activity } = await supabase
+  const { data: activity } = await (supabase as any)
     .from('activities')
     .select('requires_registration, max_participants')
     .eq('id', activityId)
@@ -123,16 +123,16 @@ export async function registerForActivity(activityId: string, notes?: string) {
     return { error: 'ไม่พบกิจกรรม' };
   }
 
-  if (!activity.requires_registration) {
+  if (!(activity as any).requires_registration) {
     return { error: 'กิจกรรมนี้ไม่ต้องลงทะเบียนล่วงหน้า' };
   }
 
   // Check if already registered
-  const { data: existing } = await supabase
+  const { data: existing } = await (supabase as any)
     .from('activity_registrations')
     .select('id, status')
     .eq('activity_id', activityId)
-    .eq('athlete_id', athlete.id)
+    .eq('athlete_id', (athlete as any).id)
     .single();
 
   if (existing) {
@@ -140,7 +140,7 @@ export async function registerForActivity(activityId: string, notes?: string) {
   }
 
   // Check if activity is full
-  const { data: isFull } = await supabase.rpc('is_activity_full', {
+  const { data: isFull } = await (supabase as any).rpc('is_activity_full', {
     p_activity_id: activityId,
   });
 
@@ -149,11 +149,11 @@ export async function registerForActivity(activityId: string, notes?: string) {
   }
 
   // Create registration
-  const { data: registration, error } = await supabase
+  const { data: registration, error } = await (supabase as any)
     .from('activity_registrations')
     .insert({
       activity_id: activityId,
-      athlete_id: athlete.id,
+      athlete_id: (athlete as any).id,
       athlete_notes: notes,
       status: 'pending',
     })
@@ -176,7 +176,7 @@ export async function cancelRegistration(registrationId: string) {
     return { error: 'ไม่พบข้อมูลผู้ใช้' };
   }
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('activity_registrations')
     .update({ status: 'cancelled' })
     .eq('id', registrationId)
@@ -209,11 +209,11 @@ export async function approveRegistration(registrationId: string, coachNotes?: s
     return { error: 'ไม่พบข้อมูลโค้ช' };
   }
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('activity_registrations')
     .update({
       status: 'approved',
-      approved_by: coach.id,
+      approved_by: (coach as any).id,
       approved_at: new Date().toISOString(),
       coach_notes: coachNotes,
     })
@@ -246,11 +246,11 @@ export async function rejectRegistration(registrationId: string, reason: string)
     return { error: 'ไม่พบข้อมูลโค้ช' };
   }
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('activity_registrations')
     .update({
       status: 'rejected',
-      approved_by: coach.id,
+      approved_by: (coach as any).id,
       approved_at: new Date().toISOString(),
       rejection_reason: reason,
     })
@@ -272,7 +272,7 @@ export async function removeAthleteFromActivity(registrationId: string) {
     return { error: 'ไม่พบข้อมูลผู้ใช้' };
   }
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('activity_registrations')
     .delete()
     .eq('id', registrationId);
@@ -298,7 +298,7 @@ export async function checkInWithQR(activityId: string, qrToken: string) {
   }
 
   // Get athlete profile
-  const { data: athlete } = await supabase
+  const { data: athlete } = await (supabase as any)
     .from('athletes')
     .select('id')
     .eq('user_id', user.id)
@@ -309,7 +309,7 @@ export async function checkInWithQR(activityId: string, qrToken: string) {
   }
 
   // Verify QR token
-  const { data: activity } = await supabase
+  const { data: activity } = await (supabase as any)
     .from('activities')
     .select('id, qr_code_token, qr_code_expires_at')
     .eq('id', activityId)
@@ -319,16 +319,16 @@ export async function checkInWithQR(activityId: string, qrToken: string) {
     return { error: 'ไม่พบกิจกรรม' };
   }
 
-  if (activity.qr_code_token !== qrToken) {
+  if ((activity as any).qr_code_token !== qrToken) {
     return { error: 'QR Code ไม่ถูกต้อง' };
   }
 
-  if (activity.qr_code_expires_at && new Date(activity.qr_code_expires_at) < new Date()) {
+  if ((activity as any).qr_code_expires_at && new Date((activity as any).qr_code_expires_at) < new Date()) {
     return { error: 'QR Code หมดอายุแล้ว' };
   }
 
   // Check if within check-in window
-  const { data: isValid } = await supabase.rpc('is_checkin_window_valid', {
+  const { data: isValid } = await (supabase as any).rpc('is_checkin_window_valid', {
     p_activity_id: activityId,
   });
 
@@ -337,11 +337,11 @@ export async function checkInWithQR(activityId: string, qrToken: string) {
   }
 
   // Check if already checked in
-  const { data: existing } = await supabase
+  const { data: existing } = await (supabase as any)
     .from('activity_checkins')
     .select('id')
     .eq('activity_id', activityId)
-    .eq('athlete_id', athlete.id)
+    .eq('athlete_id', (athlete as any).id)
     .single();
 
   if (existing) {
@@ -349,16 +349,16 @@ export async function checkInWithQR(activityId: string, qrToken: string) {
   }
 
   // Determine status (on_time or late)
-  const { data: status } = await supabase.rpc('determine_checkin_status', {
+  const { data: status } = await (supabase as any).rpc('determine_checkin_status', {
     p_activity_id: activityId,
   });
 
   // Create check-in record
-  const { data: checkin, error } = await supabase
+  const { data: checkin, error } = await (supabase as any)
     .from('activity_checkins')
     .insert({
       activity_id: activityId,
-      athlete_id: athlete.id,
+      athlete_id: (athlete as any).id,
       status: status || 'on_time',
       checkin_method: 'qr',
       qr_token_used: qrToken,
@@ -383,7 +383,7 @@ export async function checkOutFromActivity(activityId: string) {
   }
 
   // Get athlete profile
-  const { data: athlete } = await supabase
+  const { data: athlete } = await (supabase as any)
     .from('athletes')
     .select('id')
     .eq('user_id', user.id)
@@ -394,11 +394,11 @@ export async function checkOutFromActivity(activityId: string) {
   }
 
   // Update check-out time
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('activity_checkins')
     .update({ checked_out_at: new Date().toISOString() })
     .eq('activity_id', activityId)
-    .eq('athlete_id', athlete.id)
+    .eq('athlete_id', (athlete as any).id)
     .is('checked_out_at', null);
 
   if (error) {

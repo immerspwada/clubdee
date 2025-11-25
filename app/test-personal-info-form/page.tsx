@@ -9,11 +9,14 @@ import { personalInfoSchema, type PersonalInfoInput } from '@/lib/membership/val
 export default function TestPersonalInfoFormPage() {
   const [formData, setFormData] = useState<PersonalInfoInput>({
     full_name: '',
+    nickname: undefined,
     gender: 'male',
     date_of_birth: '',
     phone_number: '',
     address: '',
     emergency_contact: '',
+    blood_type: undefined,
+    medical_conditions: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValid, setIsValid] = useState<boolean | null>(null);

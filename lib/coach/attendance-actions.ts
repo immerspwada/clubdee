@@ -441,12 +441,11 @@ export async function reviewLeaveRequest(
 
     // Update leave request status
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('leave_requests')
       .update({
         status: newStatus,
-        // @ts-ignore
-        reviewed_by: coach.id,
+        reviewed_by: (coach as any).id,
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', leaveRequestId);
@@ -473,15 +472,14 @@ export async function reviewLeaveRequest(
 
       if (!existingAttendance) {
         // Create excused attendance record
-        const { error: attendanceError } = await supabase
+        const { error: attendanceError } = await (supabase as any)
           .from('attendance')
           .insert({
             training_session_id: sessionId,
             athlete_id: athleteId,
             status: 'excused',
             check_in_method: 'manual',
-            // @ts-ignore
-            notes: `Leave approved: ${leaveRequest.reason}`,
+            notes: `Leave approved: ${(leaveRequest as any).reason}`,
           });
 
         if (attendanceError) {
