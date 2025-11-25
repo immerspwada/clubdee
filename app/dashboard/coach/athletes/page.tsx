@@ -73,9 +73,10 @@ export default async function CoachAthletesPage() {
         {athletes && athletes.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {athletes.map((athlete) => (
-              <div
+              <Link
                 key={athlete.id}
-                className="rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
+                href={`/dashboard/coach/athletes/${athlete.id}`}
+                className="rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow block"
               >
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
@@ -112,7 +113,7 @@ export default async function CoachAthletesPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (

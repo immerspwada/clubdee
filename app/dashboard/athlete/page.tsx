@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { CalendarDays, TrendingUp, Award, Clock, Bell, Users, FileText, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { RecommendationCard } from '@/components/athlete/RecommendationCard';
+import { GoalsWidget } from '@/components/athlete/GoalsWidget';
 
 interface AthleteProfile {
   id: string;
@@ -146,6 +147,19 @@ export default async function AthleteDashboard() {
     .eq('athlete_id', profile.id)
     .order('test_date', { ascending: false })
     .limit(5)) as { data: PerformanceRecord[] | null; error: any };
+
+  // Get athlete goals
+  const { data: goals } = await supabase
+    .from('athlete_goals')
+    .select(`
+      *,
+      coaches (
+        first_name,
+        last_name
+      )
+    `)
+    .eq('athlete_id', profile.id)
+    .order('created_at', { ascending: false });
 
   // Get announcements from club coaches (only if club exists)
   let announcements = null;
@@ -428,6 +442,9 @@ export default async function AthleteDashboard() {
       {/* Recommendations */}
       <RecommendationCard recommendations={sortedRecommendations} />
 
+      {/* Goals Widget */}
+      {goals && goals.length > 0 && <GoalsWidget goals={goals} />}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -487,13 +504,28 @@ export default async function AthleteDashboard() {
         </Link>
       )}
 
-      {/* Announcements Section */}
+      {/* Announcements Section - Enhanced */}
       {announcements && announcements.length > 0 && (
         <div className="mb-4">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-sm font-semibold text-black">ประกาศจากโค้ช</h2>
-            <Link href="/dashboard/athlete/announcements" className="text-xs text-blue-600">
-              ดูทั้งหมด
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-black">ประกาศจากโค้ช</h2>
+              {(() => {
+                const unreadCount = announcements.filter(
+                  (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
+                ).length;
+                return unreadCount > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                    {unreadCount}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <Link 
+              href="/dashboard/athlete/announcements" 
+              className="text-sm text-blue-600 font-medium hover:text-blue-700"
+            >
+              ดูทั้งหมด →
             </Link>
           </div>
           <div className="space-y-3">
@@ -501,32 +533,66 @@ export default async function AthleteDashboard() {
               const isRead = announcement.announcement_reads?.some(
                 (read: any) => read.user_id === user.id
               );
+              const getPriorityStyles = (priority: string) => {
+                switch (priority) {
+                  case 'urgent':
+                    return 'bg-red-50 border-red-300';
+                  case 'high':
+                    return 'bg-orange-50 border-orange-300';
+                  default:
+                    return isRead ? 'border-gray-200' : 'border-black';
+                }
+              };
+              const getPriorityBadge = (priority: string) => {
+                switch (priority) {
+                  case 'urgent':
+                    return <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">เร่งด่วน</span>;
+                  case 'high':
+                    return <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">สำคัญ</span>;
+                  default:
+                    return null;
+                }
+              };
               return (
-                <div
+                <Link
                   key={announcement.id}
-                  className={`bg-white rounded-2xl p-4 shadow-sm border transition-all ${
-                    isRead ? 'border-gray-100' : 'border-black'
+                  href="/dashboard/athlete/announcements"
+                  className={`block bg-white rounded-2xl p-4 shadow-sm border-2 transition-all hover:shadow-md ${
+                    getPriorityStyles(announcement.priority)
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-                      <Bell className="h-5 w-5 text-white" />
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      announcement.priority === 'urgent' ? 'bg-red-600' :
+                      announcement.priority === 'high' ? 'bg-orange-600' :
+                      'bg-black'
+                    }`}>
+                      <Bell className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {!isRead && (
-                          <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0 animate-pulse"></div>
                         )}
-                        <h3 className="font-semibold text-black text-sm line-clamp-1">
+                        <h3 className="font-bold text-black text-sm line-clamp-1 flex-1">
                           {announcement.title}
                         </h3>
+                        {getPriorityBadge(announcement.priority)}
                       </div>
-                      <p className="text-xs text-gray-600 line-clamp-2">
+                      <p className="text-sm text-gray-700 line-clamp-2 mb-2">
                         {announcement.message}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(announcement.created_at).toLocaleDateString('th-TH', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </p>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -536,7 +602,27 @@ export default async function AthleteDashboard() {
       {/* Quick Actions */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
         <h2 className="text-sm font-semibold text-black mb-4">เมนูด่วน</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
+          <Link
+            href="/dashboard/athlete/announcements"
+            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors relative"
+          >
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <Bell className="w-6 h-6 text-black" />
+            </div>
+            {(() => {
+              const unreadCount = announcements?.filter(
+                (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
+              ).length || 0;
+              return unreadCount > 0 ? (
+                <span className="absolute top-1 right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {unreadCount}
+                </span>
+              ) : null;
+            })()}
+            <span className="text-xs text-gray-700 text-center">ประกาศ</span>
+          </Link>
+
           <Link
             href="/dashboard/athlete/activities"
             className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
