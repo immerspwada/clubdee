@@ -233,13 +233,18 @@ export default async function AthleteDashboard() {
 
   // Priority 3: Today's sessions
   if (profile.clubs?.id) {
-    const { data: todaySessions } = await supabase
+    const todaySessionsResult = await supabase
       .from('training_sessions')
       .select('id, session_name, start_time')
       .eq('club_id', profile.clubs.id)
       .gte('session_date', today.toISOString())
       .lt('session_date', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString())
       .limit(1);
+    const todaySessions = todaySessionsResult.data as Array<{
+      id: string;
+      session_name: string;
+      start_time: string;
+    }> | null;
 
     if (todaySessions && todaySessions.length > 0) {
       recommendations.push({
