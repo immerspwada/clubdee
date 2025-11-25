@@ -19,7 +19,14 @@ export default async function AthleteActivitiesPage() {
     .single();
 
   if (!athlete) {
-    return <div>ไม่พบข้อมูลนักกีฬา</div>;
+    return (
+      <div className="max-w-lg mx-auto p-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">ไม่พบข้อมูลนักกีฬา</h2>
+          <p className="text-sm text-gray-600">กรุณาติดต่อผู้ดูแลระบบ</p>
+        </div>
+      </div>
+    );
   }
 
   // Get upcoming activities
@@ -31,7 +38,9 @@ export default async function AthleteActivitiesPage() {
       activity_registrations!left (
         id,
         status,
-        athlete_id
+        athlete_id,
+        rejection_reason,
+        coach_notes
       ),
       activity_checkins!left (
         id,
@@ -42,11 +51,13 @@ export default async function AthleteActivitiesPage() {
       )
     `)
     .eq('club_id', (athlete as any).club_id)
+    .eq('status', 'scheduled')
     .gte('activity_date', new Date().toISOString().split('T')[0])
     .order('activity_date', { ascending: true })
-    .order('start_time', { ascending: true });
+    .order('start_time', { ascending: true })
+    .limit(50);
 
-  // Get past activities
+  // Get past activities with check-ins
   const { data: pastActivities } = await supabase
     .from('activities')
     .select(`
@@ -64,55 +75,75 @@ export default async function AthleteActivitiesPage() {
     .lt('activity_date', new Date().toISOString().split('T')[0])
     .order('activity_date', { ascending: false })
     .order('start_time', { ascending: false })
-    .limit(20);
+    .limit(30);
 
-  // Get my registrations
+  // Get my registrations (all statuses)
   const { data: myRegistrations } = await supabase
     .from('activity_registrations')
     .select(`
       *,
       activities (
         *,
-        coaches (first_name, last_name)
+        coaches (first_name, last_name),
+        activity_checkins!left (
+          id,
+          status,
+          checked_in_at,
+          checked_out_at,
+          athlete_id
+        )
       )
     `)
     .eq('athlete_id', (athlete as any).id)
+    .in('status', ['pending', 'approved'])
     .order('registered_at', { ascending: false });
 
+  // Calculate statistics
   const upcomingCount = upcomingActivities?.length || 0;
-  const registrationCount = myRegistrations?.length || 0;
-  const pastCount = pastActivities?.length || 0;
+  const registrationCount = myRegistrations?.filter((r: any) => r.status === 'pending' || r.status === 'approved').length || 0;
+  const checkedInCount = pastActivities?.filter((a: any) => 
+    a.activity_checkins?.some((c: any) => c.athlete_id === (athlete as any).id)
+  ).length || 0;
 
   return (
-    <div className="max-w-lg mx-auto">
-      {/* Header with Stats */}
-      <div className="bg-gray-900 rounded-2xl shadow-sm p-6 mb-4 text-white">
-        <h1 className="text-2xl font-bold mb-4">กิจกรรม</h1>
+    <div className="max-w-lg mx-auto pb-6">
+      {/* Minimal Header */}
+      <div className="bg-black text-white rounded-lg p-6 mb-4">
+        <h1 className="text-xl font-bold mb-4">กิจกรรม</h1>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gray-800 rounded-xl p-3 text-center border border-gray-700">
-            <p className="text-2xl font-bold">{upcomingCount}</p>
+          <div className="text-center">
+            <p className="text-3xl font-bold">{upcomingCount}</p>
             <p className="text-xs text-gray-400 mt-1">กำลังมาถึง</p>
           </div>
-          <div className="bg-gray-800 rounded-xl p-3 text-center border border-gray-700">
-            <p className="text-2xl font-bold">{registrationCount}</p>
+          <div className="text-center border-x border-gray-700">
+            <p className="text-3xl font-bold">{registrationCount}</p>
             <p className="text-xs text-gray-400 mt-1">ลงทะเบียน</p>
           </div>
-          <div className="bg-gray-800 rounded-xl p-3 text-center border border-gray-700">
-            <p className="text-2xl font-bold">{pastCount}</p>
-            <p className="text-xs text-gray-400 mt-1">ผ่านมา</p>
+          <div className="text-center">
+            <p className="text-3xl font-bold">{checkedInCount}</p>
+            <p className="text-xs text-gray-400 mt-1">เข้าร่วมแล้ว</p>
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="upcoming" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white rounded-xl shadow-sm p-1 mb-4 border border-gray-200">
-          <TabsTrigger value="upcoming" className="text-xs data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200 rounded-lg p-1 mb-4">
+          <TabsTrigger 
+            value="upcoming" 
+            className="text-xs data-[state=active]:bg-black data-[state=active]:text-white rounded"
+          >
             กำลังมาถึง
           </TabsTrigger>
-          <TabsTrigger value="registrations" className="text-xs data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+          <TabsTrigger 
+            value="registrations" 
+            className="text-xs data-[state=active]:bg-black data-[state=active]:text-white rounded"
+          >
             ลงทะเบียน
           </TabsTrigger>
-          <TabsTrigger value="past" className="text-xs data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+          <TabsTrigger 
+            value="past" 
+            className="text-xs data-[state=active]:bg-black data-[state=active]:text-white rounded"
+          >
             ผ่านมา
           </TabsTrigger>
         </TabsList>
@@ -127,7 +158,7 @@ export default async function AthleteActivitiesPage() {
 
         <TabsContent value="registrations" className="mt-0">
           <ActivityList
-            activities={myRegistrations?.map((r: any) => r.activities) || []}
+            activities={myRegistrations?.map((r: any) => r.activities).filter(Boolean) || []}
             athleteId={(athlete as any).id}
             registrations={myRegistrations || []}
             type="registrations"
