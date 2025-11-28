@@ -77,14 +77,14 @@ export async function POST(request: NextRequest) {
         user.id,
         '/api/athlete/leave-request',
         async () => {
-          const leaveResult = await requestLeave({ sessionId, reason });
+          const leaveResult = await requestLeave({ sessionId, reason }) as any;
           
-          if (leaveResult.error || !leaveResult.success || !leaveResult.data) {
+          if (leaveResult.error || !leaveResult.success) {
             throw new Error(leaveResult.error || 'Failed to submit leave request');
           }
           
           return {
-            leaveRequest: leaveResult.data
+            leaveRequest: leaveResult.data || leaveResult
           };
         }
       );
