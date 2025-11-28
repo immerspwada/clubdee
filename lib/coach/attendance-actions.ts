@@ -271,7 +271,7 @@ export async function markAttendance(data: {
     } else {
       // Create new attendance
       const insertData: AttendanceLogInsert = {
-        training_session_id: data.sessionId,
+        session_id: data.sessionId,
         athlete_id: data.athleteId,
         status: data.status,
         check_in_method: 'manual',
