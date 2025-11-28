@@ -1,7 +1,6 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { unstable_cache } from 'next/cache';
 
 export interface DashboardStats {
   totalAthletes: number;
@@ -50,17 +49,28 @@ export async function getCoachDashboardStats() {
     .from('profiles')
     .select('club_id, role')
     .eq('id', user.id)
-    .single() as { data: { club_id: string; role: string } | null; error: any };
+    .single() as { data: { club_id: string; role: string } | null; error: unknown };
 
   if (!profile || profile.role !== 'coach' || !profile.club_id) {
     return { error: 'ไม่พบข้อมูลโค้ช' };
   }
 
   const clubId = profile.club_id;
-  const now = new Date().toISOString();
   const today = new Date().toISOString().split('T')[0];
 
+  // Get athlete IDs first for leave requests query
+  const { data: athleteIds } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('club_id', clubId)
+    .eq('role', 'athlete') as { data: { id: string }[] | null; error: unknown };
+
+  const athleteIdList = athleteIds?.map(a => a.id) || [];
+
   // Run all queries in parallel for better performance
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any;
+  
   const [
     athletesResult,
     activeAthletesResult,
@@ -89,60 +99,56 @@ export async function getCoachDashboardStats() {
       .eq('status', 'present'),
     
     // Total sessions
-    supabase
+    sb
       .from('training_sessions')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId),
     
     // Upcoming sessions
-    supabase
+    sb
       .from('training_sessions')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId)
       .gte('session_date', today),
     
     // Today's sessions
-    supabase
+    sb
       .from('training_sessions')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId)
       .eq('session_date', today),
     
     // Pending applications
-    supabase
+    sb
       .from('membership_applications')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId)
       .eq('status', 'pending'),
     
     // Pending leave requests
-    supabase
-      .from('leave_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending')
-      .in('athlete_id', 
-        supabase
-          .from('profiles')
-          .select('id')
-          .eq('club_id', clubId)
-          .eq('role', 'athlete')
-      ),
+    athleteIdList.length > 0
+      ? sb
+          .from('leave_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending')
+          .in('athlete_id', athleteIdList)
+      : Promise.resolve({ count: 0 }),
     
     // Total tournaments
-    supabase
+    sb
       .from('tournaments')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId),
     
     // Active tournaments
-    supabase
+    sb
       .from('tournaments')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId)
       .in('status', ['open', 'draft']),
     
     // Recent performance records (last 7 days)
-    supabase
+    sb
       .from('performance_records')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', clubId)
@@ -178,7 +184,7 @@ export async function getUpcomingSessions(limit: number = 5) {
     .from('profiles')
     .select('club_id')
     .eq('id', user.id)
-    .single() as { data: { club_id: string } | null; error: any };
+    .single() as { data: { club_id: string } | null; error: unknown };
 
   if (!profile?.club_id) {
     return { error: 'ไม่พบข้อมูลโค้ช' };
@@ -186,14 +192,15 @@ export async function getUpcomingSessions(limit: number = 5) {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: sessions, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessions, error } = await (supabase as any)
     .from('training_sessions')
     .select('id, title, session_date, start_time, end_time, location')
     .eq('club_id', profile.club_id)
     .gte('session_date', today)
     .order('session_date', { ascending: true })
     .order('start_time', { ascending: true })
-    .limit(limit) as { data: any[] | null; error: any };
+    .limit(limit);
 
   if (error) {
     return { error: 'ไม่สามารถโหลดข้อมูลได้' };
@@ -201,7 +208,7 @@ export async function getUpcomingSessions(limit: number = 5) {
 
   // Get attendance counts for each session
   const sessionsWithAttendance = await Promise.all(
-    (sessions || []).map(async (session) => {
+    (sessions || []).map(async (session: { id: string; title: string; session_date: string; start_time: string; end_time: string; location: string | null }) => {
       const { count: attendanceCount } = await supabase
         .from('attendance')
         .select('*', { count: 'exact', head: true })
@@ -239,7 +246,7 @@ export async function getRecentActivities(limit: number = 10) {
     .from('profiles')
     .select('club_id')
     .eq('id', user.id)
-    .single() as { data: { club_id: string } | null; error: any };
+    .single() as { data: { club_id: string } | null; error: unknown };
 
   if (!profile?.club_id) {
     return { error: 'ไม่พบข้อมูลโค้ช' };
@@ -247,8 +254,11 @@ export async function getRecentActivities(limit: number = 10) {
 
   const activities: RecentActivity[] = [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any;
+
   // Get recent sessions (last 7 days)
-  const { data: recentSessions } = await supabase
+  const { data: recentSessions } = await sb
     .from('training_sessions')
     .select('id, title, session_date, created_at')
     .eq('club_id', profile.club_id)
@@ -256,7 +266,7 @@ export async function getRecentActivities(limit: number = 10) {
     .order('created_at', { ascending: false })
     .limit(3);
 
-  recentSessions?.forEach((session) => {
+  (recentSessions || []).forEach((session: { id: string; title: string; created_at: string }) => {
     activities.push({
       id: session.id,
       type: 'session',
@@ -268,14 +278,14 @@ export async function getRecentActivities(limit: number = 10) {
   });
 
   // Get recent applications
-  const { data: recentApplications } = await supabase
+  const { data: recentApplications } = await sb
     .from('membership_applications')
     .select('id, status, created_at, profiles!membership_applications_applicant_id_fkey(full_name)')
     .eq('club_id', profile.club_id)
     .order('created_at', { ascending: false })
     .limit(3);
 
-  recentApplications?.forEach((app: any) => {
+  (recentApplications || []).forEach((app: { id: string; status: string; created_at: string; profiles?: { full_name: string } }) => {
     activities.push({
       id: app.id,
       type: 'application',
@@ -288,14 +298,14 @@ export async function getRecentActivities(limit: number = 10) {
   });
 
   // Get recent tournaments
-  const { data: recentTournaments } = await supabase
+  const { data: recentTournaments } = await sb
     .from('tournaments')
     .select('id, name, status, created_at')
     .eq('club_id', profile.club_id)
     .order('created_at', { ascending: false })
     .limit(2);
 
-  recentTournaments?.forEach((tournament) => {
+  (recentTournaments || []).forEach((tournament: { id: string; name: string; status: string; created_at: string }) => {
     activities.push({
       id: tournament.id,
       type: 'tournament',
@@ -326,7 +336,7 @@ export async function getPendingTasks() {
     .from('profiles')
     .select('club_id')
     .eq('id', user.id)
-    .single() as { data: { club_id: string } | null; error: any };
+    .single() as { data: { club_id: string } | null; error: unknown };
 
   if (!profile?.club_id) {
     return { error: 'ไม่พบข้อมูลโค้ช' };
@@ -334,28 +344,36 @@ export async function getPendingTasks() {
 
   const today = new Date().toISOString().split('T')[0];
 
+  // Get athlete IDs first
+  const { data: athleteIds } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('club_id', profile.club_id)
+    .eq('role', 'athlete') as { data: { id: string }[] | null; error: unknown };
+
+  const athleteIdList = athleteIds?.map(a => a.id) || [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any;
+
   const [applicationsResult, leaveRequestsResult, todaySessionsResult] = await Promise.all([
-    supabase
+    sb
       .from('membership_applications')
       .select('id, profiles!membership_applications_applicant_id_fkey(full_name)')
       .eq('club_id', profile.club_id)
       .eq('status', 'pending')
       .limit(5),
     
-    supabase
-      .from('leave_requests')
-      .select('id, profiles!leave_requests_athlete_id_fkey(full_name), start_date, end_date')
-      .eq('status', 'pending')
-      .in('athlete_id', 
-        supabase
-          .from('profiles')
-          .select('id')
-          .eq('club_id', profile.club_id)
-          .eq('role', 'athlete')
-      )
-      .limit(5),
+    athleteIdList.length > 0
+      ? sb
+          .from('leave_requests')
+          .select('id, profiles!leave_requests_athlete_id_fkey(full_name), start_date, end_date')
+          .eq('status', 'pending')
+          .in('athlete_id', athleteIdList)
+          .limit(5)
+      : Promise.resolve({ data: [] }),
     
-    supabase
+    sb
       .from('training_sessions')
       .select('id, title, start_time')
       .eq('club_id', profile.club_id)
