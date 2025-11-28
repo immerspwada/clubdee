@@ -65,23 +65,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Update feature flag using raw query to avoid type issues
-    const updateFields: string[] = ['updated_at = NOW()'];
-    const updateValues: any[] = [];
-    
-    if (enabled !== undefined) {
-      updateFields.push(`enabled = $${updateValues.length + 1}`);
-      updateValues.push(enabled);
-    }
-    
-    if (rollout_percentage !== undefined) {
-      updateFields.push(`rollout_percentage = $${updateValues.length + 1}`);
-      updateValues.push(rollout_percentage);
-    }
-    
-    updateValues.push(name);
-    
-    const { data, error } = await supabase
+    // Update feature flag using RPC to avoid type issues
+    const { data, error } = await (supabase as any)
       .rpc('update_feature_flag', {
         flag_name: name,
         flag_enabled: enabled,
