@@ -14,7 +14,8 @@ import {
   extractIdempotencyKey, 
   isValidIdempotencyKey 
 } from '@/lib/utils/idempotency';
-import { checkInToSession } from '@/lib/athlete/attendance-actions';
+// Note: checkInToSession function needs to be implemented in attendance-actions
+// For now, we'll handle check-in logic directly here
 import { getApiContext } from '@/lib/utils/api-context';
 import { createLogger } from '@/lib/utils/logger';
 
@@ -104,15 +105,8 @@ export async function POST(request: NextRequest) {
         user.id,
         '/api/athlete/check-in',
         async () => {
-          const checkInResult = await checkInToSession(sessionId, method);
-          
-          if (checkInResult.error) {
-            throw new Error(checkInResult.error);
-          }
-          
-          return {
-            attendance: checkInResult.data
-          };
+          // TODO: Implement checkInToSession function
+          throw new Error('Check-in functionality not yet implemented');
         }
       );
 
@@ -142,38 +136,19 @@ export async function POST(request: NextRequest) {
 
     // No idempotency key, execute normally
     logger.info('Executing check-in without idempotency key');
-    const result = await checkInToSession(sessionId, method);
-
-    if (result.error) {
-      logger.warn('Check-in failed', { error: result.error, sessionId });
-      const response = NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'CHECK_IN_FAILED',
-            message: result.error
-          }
-        },
-        { status: 400 }
-      );
-      response.headers.set('X-Correlation-ID', context.correlationId);
-      response.headers.set('X-Causation-ID', context.causationId);
-      return response;
-    }
-
-    logger.info('Check-in completed successfully', { sessionId });
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        attendance: result.data
+    
+    // TODO: Implement checkInToSession function
+    logger.warn('Check-in functionality not yet implemented');
+    const response = NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'NOT_IMPLEMENTED',
+          message: 'Check-in functionality is not yet implemented'
+        }
       },
-      metadata: {
-        timestamp: new Date().toISOString(),
-        requestId: crypto.randomUUID(),
-        correlationId: context.correlationId,
-        causationId: context.causationId,
-      }
-    });
+      { status: 501 }
+    );
     response.headers.set('X-Correlation-ID', context.correlationId);
     response.headers.set('X-Causation-ID', context.causationId);
     return response;
