@@ -37,7 +37,7 @@ export default async function AthleteAnnouncementsPage() {
   const { data: clubCoaches } = await supabase
     .from('coaches')
     .select('id')
-    .eq('club_id', athlete.club_id || '');
+    .eq('club_id', athlete.club_id || '') as { data: { id: string }[] | null };
 
   const coachIds = clubCoaches?.map(c => c.id) || [];
 
