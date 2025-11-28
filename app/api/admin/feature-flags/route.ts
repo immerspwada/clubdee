@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest) {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (roleError || !userRole || userRole.role !== 'admin') {
       return NextResponse.json(
