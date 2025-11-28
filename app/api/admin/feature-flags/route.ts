@@ -66,7 +66,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Build update object
-    const updates: any = {
+    const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest) {
     // Update feature flag
     const { data, error } = await supabase
       .from('feature_flags')
-      .update(updates)
+      .update(updates as any)
       .eq('name', name)
       .select()
       .single();
