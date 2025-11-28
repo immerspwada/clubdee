@@ -21,14 +21,14 @@ export default async function LeaveHistoryPage() {
     .from('athletes')
     .select('id')
     .eq('user_id', user.id)
-    .single();
+    .single<{ id: string }>();
 
   if (!profile) {
     redirect('/dashboard/athlete');
   }
 
   // Get leave request history using the view
-  const { data: requests, error } = await supabase
+  const { data: requests, error } = await (supabase as any)
     .from('leave_request_history')
     .select('*')
     .eq('athlete_id', profile.id)
