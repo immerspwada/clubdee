@@ -40,10 +40,19 @@ export default async function FeatureFlagsPage() {
   }
 
   // Fetch all feature flags
+  interface FeatureFlag {
+    id: string;
+    name: string;
+    enabled: boolean;
+    rollout_percentage: number;
+    created_at: string;
+    updated_at: string;
+  }
+  
   const { data: flags, error } = await supabase
     .from('feature_flags')
     .select('*')
-    .order('name');
+    .order('name') as { data: FeatureFlag[] | null; error: any };
 
   if (error) {
     console.error('Error fetching feature flags:', error);
