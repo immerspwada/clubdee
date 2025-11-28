@@ -47,6 +47,8 @@ export interface NotificationPreferences {
 export async function addParentConnection(input: AddParentInput) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
     // Get athlete profile
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -54,7 +56,7 @@ export async function addParentConnection(input: AddParentInput) {
       return { success: false, error: 'ไม่พบข้อมูลผู้ใช้' };
     }
     
-    const { data: athlete, error: athleteError } = await supabase
+    const { data: athlete, error: athleteError } = await sb
       .from('athletes')
       .select('id')
       .eq('user_id', user.id)
@@ -68,7 +70,7 @@ export async function addParentConnection(input: AddParentInput) {
     const verificationToken = crypto.randomUUID();
     
     // Insert parent connection
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_connections')
       .insert({
         athlete_id: athlete.id,
@@ -110,8 +112,10 @@ export async function addParentConnection(input: AddParentInput) {
 export async function verifyParentConnection(token: string) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_connections')
       .update({
         is_verified: true,
@@ -143,13 +147,15 @@ export async function verifyParentConnection(token: string) {
 export async function getParentConnections(): Promise<ParentConnection[]> {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       throw new Error('ไม่พบข้อมูลผู้ใช้');
     }
     
-    const { data: athlete, error: athleteError } = await supabase
+    const { data: athlete, error: athleteError } = await sb
       .from('athletes')
       .select('id')
       .eq('user_id', user.id)
@@ -159,7 +165,7 @@ export async function getParentConnections(): Promise<ParentConnection[]> {
       throw new Error('ไม่พบข้อมูลนักกีฬา');
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_connections')
       .select('*')
       .eq('athlete_id', athlete.id)
@@ -183,8 +189,10 @@ export async function updateNotificationPreferences(
 ) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_connections')
       .update(preferences)
       .eq('id', connectionId)
@@ -213,11 +221,13 @@ export async function updateNotificationPreferences(
 export async function resendVerificationEmail(connectionId: string) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
     // Generate new token
     const verificationToken = crypto.randomUUID();
     
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_connections')
       .update({
         verification_token: verificationToken,
@@ -251,8 +261,10 @@ export async function resendVerificationEmail(connectionId: string) {
 export async function removeParentConnection(connectionId: string) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
-    const { error } = await supabase
+    const { error } = await sb
       .from('parent_connections')
       .delete()
       .eq('id', connectionId);
@@ -278,8 +290,10 @@ export async function removeParentConnection(connectionId: string) {
 export async function getParentNotificationStats(athleteId: string) {
   try {
     const supabase = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('parent_notifications')
       .select('type, delivery_status')
       .eq('athlete_id', athleteId);
@@ -288,16 +302,16 @@ export async function getParentNotificationStats(athleteId: string) {
     
     const stats = {
       total: data.length,
-      sent: data.filter(n => n.delivery_status === 'sent').length,
-      pending: data.filter(n => n.delivery_status === 'pending').length,
-      failed: data.filter(n => n.delivery_status === 'failed').length,
+      sent: data.filter((n: { delivery_status: string }) => n.delivery_status === 'sent').length,
+      pending: data.filter((n: { delivery_status: string }) => n.delivery_status === 'pending').length,
+      failed: data.filter((n: { delivery_status: string }) => n.delivery_status === 'failed').length,
       byType: {
-        attendance: data.filter(n => n.type === 'attendance').length,
-        performance: data.filter(n => n.type === 'performance').length,
-        leave: data.filter(n => n.type === 'leave').length,
-        announcement: data.filter(n => n.type === 'announcement').length,
-        goal: data.filter(n => n.type === 'goal').length,
-        report: data.filter(n => n.type === 'report').length,
+        attendance: data.filter((n: { type: string }) => n.type === 'attendance').length,
+        performance: data.filter((n: { type: string }) => n.type === 'performance').length,
+        leave: data.filter((n: { type: string }) => n.type === 'leave').length,
+        announcement: data.filter((n: { type: string }) => n.type === 'announcement').length,
+        goal: data.filter((n: { type: string }) => n.type === 'goal').length,
+        report: data.filter((n: { type: string }) => n.type === 'report').length,
       }
     };
     
