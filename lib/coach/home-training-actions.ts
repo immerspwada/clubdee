@@ -23,13 +23,14 @@ export async function getPendingHomeTrainingReviews() {
     .from('profiles')
     .select('id, role')
     .eq('user_id', user.id)
-    .single();
+    .single<{ id: string; role: string }>();
 
   if (!profile || profile.role !== 'coach') {
     return { error: 'เฉพาะโค้ชเท่านั้นที่สามารถดูรายการนี้ได้' };
   }
 
-  const { data, error } = await supabase.rpc('get_coach_pending_home_training_reviews', {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_coach_pending_home_training_reviews', {
     p_coach_id: profile.id,
   });
 
@@ -58,13 +59,14 @@ export async function getClubHomeTrainingLogs(filters?: {
     .from('profiles')
     .select('id, club_id, role')
     .eq('user_id', user.id)
-    .single();
+    .single<{ id: string; club_id: string | null; role: string }>();
 
   if (!profile || profile.role !== 'coach') {
     return { error: 'เฉพาะโค้ชเท่านั้นที่สามารถดูรายการนี้ได้' };
   }
 
-  let query = supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (supabase as any)
     .from('home_training_logs')
     .select(`
       *,
@@ -114,13 +116,14 @@ export async function reviewHomeTrainingLog(
     .from('profiles')
     .select('id')
     .eq('user_id', user.id)
-    .single();
+    .single<{ id: string }>();
 
   if (!profile) {
     return { error: 'ไม่พบข้อมูลโปรไฟล์' };
   }
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('home_training_logs')
     .update({
       status,
@@ -152,13 +155,14 @@ export async function createHomeTrainingFeedback(input: CreateFeedbackInput) {
     .from('profiles')
     .select('id, role')
     .eq('user_id', user.id)
-    .single();
+    .single<{ id: string; role: string }>();
 
   if (!profile || profile.role !== 'coach') {
     return { error: 'เฉพาะโค้ชเท่านั้นที่สามารถให้ feedback ได้' };
   }
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('home_training_feedback')
     .insert({
       ...input,
@@ -185,7 +189,8 @@ export async function updateHomeTrainingFeedback(
 ) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('home_training_feedback')
     .update(updates)
     .eq('id', feedbackId)
@@ -204,7 +209,8 @@ export async function updateHomeTrainingFeedback(
 export async function deleteHomeTrainingFeedback(feedbackId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('home_training_feedback')
     .delete()
     .eq('id', feedbackId);
@@ -224,7 +230,8 @@ export async function getAthleteHomeTrainingHistory(athleteId: string, days: num
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('home_training_logs')
     .select(`
       *,
