@@ -7,12 +7,13 @@ import { LeaveRequestForm } from '@/components/athlete/LeaveRequestForm';
 import { Calendar, Clock, MapPin, User, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function SessionDetailPage({ params }: PageProps) {
+  const { id } = await params;
   const supabase = await createClient();
 
   // Check authentication
@@ -26,7 +27,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
   }
 
   // Get session details
-  const { data: session, error } = await getSessionDetails(params.id);
+  const { data: session, error } = await getSessionDetails(id);
 
   if (error || !session) {
     return (
