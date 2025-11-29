@@ -1,8 +1,8 @@
-# ✅ พร้อม Deploy ไปยัง Netlify
+# ✅ พร้อม Deploy ไปยัง Vercel
 
 **สถานะ**: 🟢 **READY FOR DEPLOYMENT**
 **วันที่**: 29 พฤศจิกายน 2568
-**เวลา Deploy**: ~10 นาที
+**เวลา Deploy**: ~5 นาที
 
 ---
 
@@ -10,13 +10,13 @@
 
 ### ✅ Code
 - [x] Code committed ไปยัง git
-- [x] netlify.toml ตั้งค่าแล้ว
+- [x] next.config.ts ตั้งค่าแล้ว
 - [x] Build script พร้อม
 - [x] Environment variables ตั้งค่าแล้ว
 
 ### ✅ Database
 - [x] Supabase project active
-- [x] 114+ migrations applied
+- [x] 115+ migrations applied
 - [x] RLS policies configured
 - [x] Storage buckets created
 
@@ -42,28 +42,27 @@ git remote add origin https://github.com/YOUR_USERNAME/sports-club-management.gi
 git push -u origin main
 ```
 
-### ขั้นตอนที่ 2: Connect Netlify
+### ขั้นตอนที่ 2: Connect Vercel
 
-1. ไปที่ https://app.netlify.com
-2. Click **"Add new site"** → **"Import an existing project"**
-3. เลือก **GitHub**
-4. Authorize Netlify
+1. ไปที่ https://vercel.com
+2. Click **"Add New"** → **"Project"**
+3. เลือก **"Import Git Repository"**
+4. Authorize Vercel
 5. เลือก repository: `sports-club-management`
-6. Click **"Deploy site"**
+6. Click **"Import"**
 
 ### ขั้นตอนที่ 3: Set Environment Variables
 
-ใน Netlify Dashboard:
-1. ไปที่ **Site settings** → **Build & deploy** → **Environment**
-2. Click **"Edit variables"**
-3. เพิ่มตัวแปร:
+ใน Vercel Dashboard:
+1. ไปที่ **Settings** → **Environment Variables**
+2. เพิ่มตัวแปร:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://ettpbpznktyttpnyqhkr.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_ACCESS_TOKEN=sbp_78f4731f8c32250fe7f3d9344c5e4476e0a27a20
-NEXT_PUBLIC_APP_URL=https://club-dee.netlify.app
+NEXT_PUBLIC_APP_URL=https://sports-club-management.vercel.app
 NODE_ENV=production
 ```
 
@@ -75,12 +74,12 @@ NODE_ENV=production
 |------|-------|
 | **Framework** | Next.js 14+ |
 | **Database** | Supabase |
-| **Hosting** | Netlify |
-| **Build Time** | ~3-5 minutes |
-| **Deploy Time** | ~1-2 minutes |
+| **Hosting** | Vercel |
+| **Build Time** | ~2-3 minutes |
+| **Deploy Time** | ~1 minute |
 | **Node Version** | 20.x |
 | **Build Command** | `npm run build` |
-| **Publish Dir** | `.next` |
+| **Output Directory** | `.next` |
 
 ---
 
@@ -88,7 +87,7 @@ NODE_ENV=production
 
 ### 1. ตรวจสอบเว็บไซต์โหลด
 ```
-https://club-dee.netlify.app
+https://sports-club-management.vercel.app
 ```
 
 ### 2. ทดสอบ Login
@@ -109,8 +108,8 @@ https://club-dee.netlify.app
 | Document | Purpose |
 |----------|---------|
 | `DEPLOY_NOW_TH.md` | Quick start guide (Thai) |
-| `NETLIFY_DEPLOYMENT_GUIDE.md` | Full deployment guide |
-| `NETLIFY_DEPLOY_CHECKLIST.md` | Pre-deployment checklist |
+| `VERCEL_DEPLOYMENT_GUIDE.md` | Full deployment guide |
+| `VERCEL_DEPLOY_CHECKLIST.md` | Pre-deployment checklist |
 | `FIX_DEMO_LOGIN.md` | Demo login troubleshooting |
 | `DEMO_CREDENTIALS_SETUP.md` | Demo user setup |
 
@@ -172,8 +171,8 @@ Parent:
    git push -u origin main
    ```
 
-3. **Deploy to Netlify**
-   - Go to https://app.netlify.com
+3. **Deploy to Vercel**
+   - Go to https://vercel.com
    - Import from GitHub
    - Set environment variables
    - Deploy
@@ -184,7 +183,7 @@ Parent:
    - Check error logs
 
 5. **Monitor Performance**
-   - Check Netlify dashboard
+   - Check Vercel dashboard
    - Monitor error logs
    - Track performance metrics
 
@@ -193,7 +192,7 @@ Parent:
 ## 🐛 Troubleshooting
 
 ### Build Failed
-- Check build logs in Netlify
+- Check build logs in Vercel
 - Verify environment variables
 - Check for TypeScript errors
 
@@ -213,9 +212,9 @@ Parent:
 
 For issues:
 1. Check `FIX_DEMO_LOGIN.md`
-2. Check `NETLIFY_ERROR_FIX.md`
-3. Review Netlify build logs
-4. Check Supabase logs
+2. Check Vercel build logs
+3. Review Supabase logs
+4. Check browser console
 
 ---
 
@@ -224,9 +223,9 @@ For issues:
 - [ ] Code committed to git
 - [ ] GitHub repository created
 - [ ] Code pushed to GitHub
-- [ ] Netlify account ready
+- [ ] Vercel account ready
 - [ ] Environment variables prepared
-- [ ] Deploy to Netlify
+- [ ] Deploy to Vercel
 - [ ] Test login page
 - [ ] Test demo credentials
 - [ ] Test core features
@@ -238,17 +237,35 @@ For issues:
 
 When deployment is complete:
 
-✅ Green checkmark in Netlify Deploys
-✅ Site URL: https://club-dee.netlify.app
-✅ Build logs show "Deployed successfully"
+✅ Green checkmark in Vercel Deployments
+✅ Site URL: https://sports-club-management.vercel.app
+✅ Build logs show "Deployment successful"
 ✅ Login page loads without errors
 ✅ Demo credentials work
 ✅ Dashboard accessible
 
 ---
 
+## 🔄 Vercel vs Netlify
+
+| Feature | Vercel | Netlify |
+|---------|--------|---------|
+| Build Minutes | 6,000/month | 300/month |
+| Functions | 1,000,000/month | 125,000/month |
+| Next.js Optimization | ⭐⭐⭐ | ⭐⭐ |
+| Cold Start | Faster | Slower |
+| Cost | $20/month Pro | $19/month Pro |
+
+**Why Vercel?**
+- Optimized for Next.js
+- More build minutes
+- Better performance
+- Faster deployments
+
+---
+
 **Status**: 🟢 **READY FOR DEPLOYMENT**
-**Estimated Time**: ~10 minutes
-**Site URL**: https://club-dee.netlify.app
+**Estimated Time**: ~5 minutes
+**Site URL**: https://sports-club-management.vercel.app
 
 🚀 **Ready to deploy!**

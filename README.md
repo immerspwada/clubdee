@@ -15,6 +15,22 @@ A comprehensive web application for managing sports clubs, athletes, coaches, an
 - **API Documentation**: OpenAPI 3.1 specifications
 - **Event System**: JSON Schema-based event definitions
 
+## 🚀 Quick Deploy to Vercel
+
+```bash
+# 1. Push to GitHub
+git push -u origin main
+
+# 2. Go to https://vercel.com
+# 3. Import repository
+# 4. Add environment variables
+# 5. Deploy!
+```
+
+**Live URL**: https://sports-club-management.vercel.app
+
+See [VERCEL_QUICK_START.md](docs/VERCEL_QUICK_START.md) for detailed instructions.
+
 ## Features
 
 ### Core Features
