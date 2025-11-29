@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getParentSession } from '@/lib/parent-auth/actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ParentLoginPage() {
   // ถ้าล็อกอินอยู่แล้ว redirect ไป dashboard
   const session = await getParentSession();
