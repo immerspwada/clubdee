@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CoachBottomNav } from '@/components/coach/CoachBottomNav';
+import { getPendingCount } from '@/lib/integration/application-integration';
 
 interface CoachProfile {
   id: string;
@@ -118,6 +119,16 @@ export default async function CoachDashboard() {
     .select('*', { count: 'exact', head: true })
     .eq('coach_id', profile.id);
 
+  // Get pending application count for badge
+  let pendingApplications = 0;
+  try {
+    if (profile.clubs?.id) {
+      pendingApplications = await getPendingCount(profile.clubs.id);
+    }
+  } catch (error) {
+    console.error('Error fetching pending applications:', error);
+  }
+
   return (
     <div className="min-h-screen bg-black">
       {/* Native App Header - Black & White */}
@@ -211,15 +222,31 @@ export default async function CoachDashboard() {
                 className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center relative">
                     <FileText className="h-5 w-5 text-white" />
+                    {pendingApplications > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {pendingApplications > 9 ? '9+' : pendingApplications}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-black">พิจารณาใบสมัคร</p>
-                    <p className="text-xs text-gray-500">อนุมัติ/ปฏิเสธใบสมัครสมาชิก</p>
+                    <p className="text-xs text-gray-500">
+                      {pendingApplications > 0 
+                        ? `มี ${pendingApplications} ใบสมัครรอพิจารณา`
+                        : 'อนุมัติ/ปฏิเสธใบสมัครสมาชิก'}
+                    </p>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  {pendingApplications > 0 && (
+                    <span className="bg-red-100 text-red-600 text-xs font-semibold px-2 py-1 rounded-full">
+                      รอพิจารณา
+                    </span>
+                  )}
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </div>
               </Link>
               <Link
                 href="/dashboard/coach/athletes"

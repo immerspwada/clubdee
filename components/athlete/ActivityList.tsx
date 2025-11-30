@@ -29,6 +29,7 @@ interface Activity {
   location: string;
   max_participants?: number;
   requires_registration: boolean;
+  registration_deadline?: string;
   status: string;
   coaches?: {
     first_name: string;
@@ -111,6 +112,57 @@ function calculateDuration(startTime: string, endTime: string): string {
   } else {
     return `${minutes} นาที`;
   }
+}
+
+/**
+ * Helper function to calculate remaining time until deadline
+ * **Validates: Requirements 3.3** - Deadline display
+ */
+function calculateRemainingTime(deadline: string | null | undefined): {
+  days: number;
+  hours: number;
+  minutes: number;
+  isExpired: boolean;
+  displayText: string;
+} | null {
+  if (!deadline) {
+    return null;
+  }
+
+  const now = new Date();
+  const deadlineDate = new Date(deadline);
+  const diff = deadlineDate.getTime() - now.getTime();
+
+  if (diff <= 0) {
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      isExpired: true,
+      displayText: 'หมดเวลาลงทะเบียนแล้ว',
+    };
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  let displayText = '';
+  if (days > 0) {
+    displayText = `เหลือเวลาลงทะเบียน ${days} วัน`;
+  } else if (hours > 0) {
+    displayText = `เหลือเวลาลงทะเบียน ${hours} ชั่วโมง`;
+  } else {
+    displayText = `เหลือเวลาลงทะเบียน ${minutes} นาที`;
+  }
+
+  return {
+    days,
+    hours,
+    minutes,
+    isExpired: false,
+    displayText,
+  };
 }
 
 export function ActivityList({ activities, athleteId, registrations, type }: ActivityListProps) {
@@ -285,6 +337,9 @@ export function ActivityList({ activities, athleteId, registrations, type }: Act
           );
           const isToday = daysUntil === 0;
           const isTomorrow = daysUntil === 1;
+          
+          // Calculate remaining time until registration deadline
+          const deadlineInfo = calculateRemainingTime(activity.registration_deadline);
 
           return (
             <Card key={activity.id} className="p-4 border border-gray-300 hover:border-black transition-colors">
@@ -349,22 +404,43 @@ export function ActivityList({ activities, athleteId, registrations, type }: Act
                   )}
                 </div>
 
-                {/* Minimal Check-in status */}
+                {/* Enhanced Check-in status - "เข้าร่วมแล้ว" display */}
+                {/* **Validates: Requirements 3.5** - Check-in status display */}
                 {myCheckin && (
-                  <div className="mb-3 p-3 bg-gray-50 border border-gray-300 rounded">
+                  <div className="mb-3 p-3 bg-green-50 border border-green-300 rounded">
                     <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4" />
+                      <CheckCircle className="w-5 h-5 text-green-600" />
                       <div className="flex-1">
-                        <span className="font-medium">
-                          {myCheckin.status === 'on_time' ? 'มาตรงเวลา' : 'มาสาย'}
+                        <span className="font-bold text-green-700">
+                          เข้าร่วมแล้ว
                         </span>
-                        <span className="text-gray-600 ml-2">
-                          {new Date(myCheckin.checked_in_at).toLocaleTimeString('th-TH', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <span className="text-green-600 ml-2">
+                          ({myCheckin.status === 'on_time' ? 'ตรงเวลา' : 'มาสาย'})
                         </span>
                       </div>
+                      <span className="text-xs text-green-600">
+                        {new Date(myCheckin.checked_in_at).toLocaleTimeString('th-TH', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Registration deadline display */}
+                {/* **Validates: Requirements 3.3** - Deadline display */}
+                {type === 'upcoming' && activity.requires_registration && deadlineInfo && !myCheckin && !myRegistration && (
+                  <div className={`mb-3 p-2 rounded text-xs ${
+                    deadlineInfo.isExpired 
+                      ? 'bg-red-50 border border-red-200 text-red-600' 
+                      : deadlineInfo.days === 0 
+                        ? 'bg-orange-50 border border-orange-200 text-orange-600'
+                        : 'bg-blue-50 border border-blue-200 text-blue-600'
+                  }`}>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{deadlineInfo.displayText}</span>
                     </div>
                   </div>
                 )}

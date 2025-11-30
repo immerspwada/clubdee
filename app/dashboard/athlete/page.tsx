@@ -4,6 +4,13 @@ import { CalendarDays, TrendingUp, Award, Clock, Bell, Users, FileText, Activity
 import Link from 'next/link';
 import { RecommendationCard } from '@/components/athlete/RecommendationCard';
 import { GoalsWidget } from '@/components/athlete/GoalsWidget';
+import { 
+  UnreadAnnouncementBadge, 
+  AnnouncementPriorityBadge,
+} from '@/components/athlete/UnreadAnnouncementBadge';
+import { getAnnouncementCardStyle, getAnnouncementIconStyle } from '@/lib/utils/announcement-styles';
+import { getTodaySessions, getTomorrowSessions } from '@/lib/integration/session-integration';
+import { checkImprovement } from '@/lib/integration/performance-integration';
 
 interface AthleteProfile {
   id: string;
@@ -201,6 +208,32 @@ export default async function AthleteDashboard() {
     upcomingSessionsCount = count || 0;
   }
 
+  // Get training assignments for this athlete
+  const { data: assignmentsData } = await supabase
+    .from('training_assignments')
+    .select(`
+      *,
+      coaches (
+        first_name,
+        last_name
+      )
+    `)
+    .eq('athlete_id', profile.id)
+    .order('created_at', { ascending: false });
+
+  const assignments = (assignmentsData || []) as Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    due_date: string;
+    [key: string]: unknown;
+  }>;
+
+  const pendingAssignments = assignments.filter(a => 
+    ['pending', 'in_progress', 'overdue'].includes(a.status)
+  );
+
   // Calculate attendance rate as progress percentage
   const totalSessions = (totalAttendance || 0) + (monthlyAttendance || 0);
   const progressPercentage = totalSessions > 0 
@@ -223,7 +256,26 @@ export default async function AthleteDashboard() {
     });
   }
 
-  // Priority 2: Unread announcements
+  // Priority 2: Pending training assignments
+  if (pendingAssignments.length > 0) {
+    const urgentAssignments = pendingAssignments.filter(a => 
+      a.priority === 'urgent' || a.priority === 'high'
+    );
+    
+    recommendations.push({
+      id: 'pending-assignments',
+      title: `คุณมีงานฝึก ${pendingAssignments.length} รายการ`,
+      description: urgentAssignments.length > 0 
+        ? `มี ${urgentAssignments.length} งานเร่งด่วน อย่าลืมทำให้เสร็จ`
+        : 'โค้ชมอบหมายงานฝึกให้คุณ ตรวจสอบและอัพเดทความคืบหน้า',
+      action: 'ดูงานฝึก',
+      href: '/dashboard/athlete/assignments',
+      priority: urgentAssignments.length > 0 ? 'high' as const : 'medium' as const,
+      icon: <FileText className="w-5 h-5 text-blue-600" />,
+    });
+  }
+
+  // Priority 3: Unread announcements
   if (announcements && announcements.length > 0) {
     const unreadCount = announcements.filter(
       (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
@@ -242,64 +294,47 @@ export default async function AthleteDashboard() {
     }
   }
 
-  // Priority 3: Today's sessions
+  // Priority 3: Today's sessions - Using Session Integration Module
+  // **Validates: Requirements 2.2** - Today session recommendation
   if (profile.clubs?.id) {
-    const todaySessionsResult = await supabase
-      .from('training_sessions')
-      .select('id, session_name, start_time')
-      .eq('club_id', profile.clubs.id)
-      .gte('session_date', today.toISOString())
-      .lt('session_date', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString())
-      .limit(1);
-    const todaySessions = todaySessionsResult.data as Array<{
-      id: string;
-      session_name: string;
-      start_time: string;
-    }> | null;
+    try {
+      const todaySessions = await getTodaySessions(profile.clubs.id);
 
-    if (todaySessions && todaySessions.length > 0) {
-      recommendations.push({
-        id: 'today-session',
-        title: 'มีการฝึกซ้อมวันนี้',
-        description: `${todaySessions[0].session_name} - อย่าลืมเช็คอินเมื่อถึงเวลา`,
-        action: 'ดูรายละเอียด',
-        href: '/dashboard/athlete/schedule',
-        priority: 'high' as const,
-        icon: <CalendarDays className="w-5 h-5 text-red-600" />,
-      });
+      if (todaySessions && todaySessions.length > 0) {
+        recommendations.push({
+          id: 'today-session',
+          title: 'มีการฝึกซ้อมวันนี้',
+          description: `${todaySessions[0].title} - อย่าลืมเช็คอินเมื่อถึงเวลา`,
+          action: 'ดูรายละเอียด',
+          href: '/dashboard/athlete/schedule',
+          priority: 'high' as const,
+          icon: <CalendarDays className="w-5 h-5 text-red-600" />,
+        });
+      }
+    } catch (error) {
+      console.error('[AthleteDashboard] Error fetching today sessions:', error);
     }
   }
 
-  // Priority 4: Tomorrow's sessions
+  // Priority 4: Tomorrow's sessions - Using Session Integration Module
+  // **Validates: Requirements 2.2** - Tomorrow session recommendation
   if (profile.clubs?.id) {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfterTomorrow = new Date(tomorrow);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+    try {
+      const tomorrowSessions = await getTomorrowSessions(profile.clubs.id);
 
-    const tomorrowSessionsResult = await supabase
-      .from('training_sessions')
-      .select('id, session_name, start_time')
-      .eq('club_id', profile.clubs.id)
-      .gte('session_date', tomorrow.toISOString())
-      .lt('session_date', dayAfterTomorrow.toISOString())
-      .limit(1);
-    const tomorrowSessions = tomorrowSessionsResult.data as Array<{
-      id: string;
-      session_name: string;
-      start_time: string;
-    }> | null;
-
-    if (tomorrowSessions && tomorrowSessions.length > 0) {
-      recommendations.push({
-        id: 'tomorrow-session',
-        title: 'เตรียมตัวสำหรับพรุ่งนี้',
-        description: `${tomorrowSessions[0].session_name} - เตรียมอุปกรณ์และพักผ่อนให้เพียงพอ`,
-        action: 'ดูตารางฝึก',
-        href: '/dashboard/athlete/schedule',
-        priority: 'medium' as const,
-        icon: <CalendarDays className="w-5 h-5 text-yellow-600" />,
-      });
+      if (tomorrowSessions && tomorrowSessions.length > 0) {
+        recommendations.push({
+          id: 'tomorrow-session',
+          title: 'เตรียมตัวสำหรับพรุ่งนี้',
+          description: `${tomorrowSessions[0].title} - เตรียมอุปกรณ์และพักผ่อนให้เพียงพอ`,
+          action: 'ดูตารางฝึก',
+          href: '/dashboard/athlete/schedule',
+          priority: 'medium' as const,
+          icon: <CalendarDays className="w-5 h-5 text-yellow-600" />,
+        });
+      }
+    } catch (error) {
+      console.error('[AthleteDashboard] Error fetching tomorrow sessions:', error);
     }
   }
 
@@ -342,20 +377,25 @@ export default async function AthleteDashboard() {
     });
   }
 
-  // Priority 8: Recent performance improvement
-  if (recentPerformance && recentPerformance.length >= 2) {
-    const latest = recentPerformance[0];
-    const previous = recentPerformance[1];
-    if (latest.result_value > previous.result_value && latest.test_type === previous.test_type) {
-      recommendations.push({
-        id: 'performance-improved',
-        title: 'ผลการทดสอบของคุณดีขึ้น!',
-        description: `${latest.test_type} ของคุณพัฒนาขึ้น ทำได้ดีมาก!`,
-        action: 'ดูรายละเอียด',
-        href: '/dashboard/athlete/performance',
-        priority: 'low' as const,
-        icon: <TrendingUp className="w-5 h-5 text-blue-600" />,
-      });
+  // Priority 8: Recent performance improvement - Using Performance Integration Module
+  // **Validates: Requirements 4.2** - Performance improvement detection
+  if (profile.clubs?.id) {
+    try {
+      const improvement = await checkImprovement(profile.id);
+      
+      if (improvement && improvement.hasImproved) {
+        recommendations.push({
+          id: 'performance-improved',
+          title: 'ผลการทดสอบของคุณดีขึ้น!',
+          description: `${improvement.testType} ของคุณพัฒนาขึ้น ${improvement.improvementPercentage.toFixed(1)}% ทำได้ดีมาก!`,
+          action: 'ดูรายละเอียด',
+          href: '/dashboard/athlete/performance',
+          priority: 'low' as const,
+          icon: <TrendingUp className="w-5 h-5 text-blue-600" />,
+        });
+      }
+    } catch (error) {
+      console.error('[AthleteDashboard] Error checking performance improvement:', error);
     }
   }
 
@@ -460,8 +500,123 @@ export default async function AthleteDashboard() {
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <h2 className="text-sm font-semibold text-black mb-4">เมนูด่วน</h2>
+        <div className="grid grid-cols-5 gap-2">
+          <Link
+            href="/dashboard/athlete/announcements"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors relative"
+          >
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <Bell className="w-5 h-5 text-black" />
+            </div>
+            <UnreadAnnouncementBadge 
+              count={announcements?.filter(
+                (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
+              ).length || 0}
+              size="sm"
+              className="absolute top-1 right-1"
+            />
+            <span className="text-xs text-gray-700 text-center leading-tight">ประกาศ</span>
+          </Link>
+
+          <Link
+            href="/dashboard/athlete/assignments"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors relative"
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <span className="text-xs text-blue-700 text-center leading-tight font-medium">งานฝึก</span>
+          </Link>
+
+          <Link
+            href="/dashboard/athlete/activities"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-700 text-center leading-tight">กิจกรรม</span>
+          </Link>
+
+          <Link
+            href="/dashboard/athlete/schedule"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <CalendarDays className="w-5 h-5 text-black" />
+            </div>
+            <span className="text-xs text-gray-700 text-center leading-tight">ตารางฝึก</span>
+          </Link>
+
+          <Link
+            href="/dashboard/athlete/performance"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-black" />
+            </div>
+            <span className="text-xs text-gray-700 text-center leading-tight">ผลทดสอบ</span>
+          </Link>
+        </div>
+      </div>
+
       {/* Recommendations */}
       <RecommendationCard recommendations={sortedRecommendations} />
+
+      {/* Training Assignments Widget */}
+      {pendingAssignments.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-black">งานฝึกจากโค้ช</h2>
+            <Link 
+              href="/dashboard/athlete/assignments"
+              className="text-xs text-blue-600 font-medium hover:text-blue-700"
+            >
+              ดูทั้งหมด →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {pendingAssignments.slice(0, 3).map((assignment) => (
+              <Link
+                key={assignment.id}
+                href="/dashboard/athlete/assignments"
+                className={`block p-3 rounded-xl border-l-4 ${
+                  assignment.priority === 'urgent' ? 'border-l-red-500 bg-red-50' :
+                  assignment.priority === 'high' ? 'border-l-orange-400 bg-orange-50' :
+                  'border-l-blue-400 bg-blue-50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-medium text-black text-sm">{assignment.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      กำหนดส่ง: {new Date(assignment.due_date).toLocaleDateString('th-TH', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    assignment.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                    assignment.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {assignment.status === 'overdue' ? 'เลยกำหนด' :
+                     assignment.status === 'in_progress' ? 'กำลังทำ' : 'รอทำ'}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Goals Widget */}
       {goals && goals.length > 0 && <GoalsWidget goals={goals} />}
@@ -525,22 +680,18 @@ export default async function AthleteDashboard() {
         </Link>
       )}
 
-      {/* Announcements Section - Enhanced */}
+      {/* Announcements Section - Enhanced with Integration Components */}
       {announcements && announcements.length > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-black">ประกาศจากโค้ช</h2>
-              {(() => {
-                const unreadCount = announcements.filter(
+              <UnreadAnnouncementBadge 
+                count={announcements.filter(
                   (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
-                ).length;
-                return unreadCount > 0 ? (
-                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                    {unreadCount}
-                  </span>
-                ) : null;
-              })()}
+                ).length}
+                size="md"
+              />
             </div>
             <Link 
               href="/dashboard/athlete/announcements" 
@@ -554,39 +705,17 @@ export default async function AthleteDashboard() {
               const isRead = announcement.announcement_reads?.some(
                 (read: any) => read.user_id === user.id
               );
-              const getPriorityStyles = (priority: string) => {
-                switch (priority) {
-                  case 'urgent':
-                    return 'bg-red-50 border-red-300';
-                  case 'high':
-                    return 'bg-orange-50 border-orange-300';
-                  default:
-                    return isRead ? 'border-gray-200' : 'border-black';
-                }
-              };
-              const getPriorityBadge = (priority: string) => {
-                switch (priority) {
-                  case 'urgent':
-                    return <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">เร่งด่วน</span>;
-                  case 'high':
-                    return <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">สำคัญ</span>;
-                  default:
-                    return null;
-                }
-              };
               return (
                 <Link
                   key={announcement.id}
                   href="/dashboard/athlete/announcements"
                   className={`block bg-white rounded-2xl p-4 shadow-sm border-2 transition-all hover:shadow-md ${
-                    getPriorityStyles(announcement.priority)
+                    getAnnouncementCardStyle(announcement.priority, isRead)
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      announcement.priority === 'urgent' ? 'bg-red-600' :
-                      announcement.priority === 'high' ? 'bg-orange-600' :
-                      'bg-black'
+                      getAnnouncementIconStyle(announcement.priority)
                     }`}>
                       <Bell className="h-6 w-6 text-white" />
                     </div>
@@ -598,7 +727,7 @@ export default async function AthleteDashboard() {
                         <h3 className="font-bold text-black text-sm line-clamp-1 flex-1">
                           {announcement.title}
                         </h3>
-                        {getPriorityBadge(announcement.priority)}
+                        <AnnouncementPriorityBadge priority={announcement.priority} />
                       </div>
                       <p className="text-sm text-gray-700 line-clamp-2 mb-2">
                         {announcement.message}
@@ -619,64 +748,6 @@ export default async function AthleteDashboard() {
           </div>
         </div>
       )}
-
-      {/* Quick Actions */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-black mb-4">เมนูด่วน</h2>
-        <div className="grid grid-cols-4 gap-3">
-          <Link
-            href="/dashboard/athlete/announcements"
-            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors relative"
-          >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <Bell className="w-6 h-6 text-black" />
-            </div>
-            {(() => {
-              const unreadCount = announcements?.filter(
-                (ann: any) => !ann.announcement_reads?.some((read: any) => read.user_id === user.id)
-              ).length || 0;
-              return unreadCount > 0 ? (
-                <span className="absolute top-1 right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                  {unreadCount}
-                </span>
-              ) : null;
-            })()}
-            <span className="text-xs text-gray-700 text-center">ประกาศจากโค้ช</span>
-          </Link>
-
-          <Link
-            href="/dashboard/athlete/activities"
-            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-700 text-center">เข้าร่วมกิจกรรม</span>
-          </Link>
-
-          <Link
-            href="/dashboard/athlete/schedule"
-            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <CalendarDays className="w-6 h-6 text-black" />
-            </div>
-            <span className="text-xs text-gray-700 text-center">ตารางฝึกซ้อม</span>
-          </Link>
-
-          <Link
-            href="/dashboard/athlete/performance"
-            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-black" />
-            </div>
-            <span className="text-xs text-gray-700 text-center">ผลทดสอบของฉัน</span>
-          </Link>
-        </div>
-      </div>
 
       {/* Recent Activity */}
       {(recentAttendance && recentAttendance.length > 0) && (

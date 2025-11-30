@@ -1,4 +1,5 @@
 export * from './database.types';
+export * from './integration';
 
 // Additional application types
 export interface User {

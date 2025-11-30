@@ -1,16 +1,19 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Mail, Phone, Calendar, TrendingUp, Target, Award } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, TrendingUp, Target, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { AthleteGoalsList } from '@/components/coach/AthleteGoalsList';
 import { CreateGoalDialog } from '@/components/coach/CreateGoalDialog';
 import CreateProgressReportDialog from '@/components/coach/CreateProgressReportDialog';
+import { CreateAssignmentDialog } from '@/components/coach/CreateAssignmentDialog';
+import { AthleteAssignmentsList } from '@/components/coach/AthleteAssignmentsList';
+import { ViewApplicationDialog } from '@/components/coach/ViewApplicationDialog';
 
 interface Params {
   id: string;
 }
 
-export default async function AthleteDetailPage({ params }: { params: Params }) {
+export default async function AthleteDetailPage({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -39,7 +42,7 @@ export default async function AthleteDetailPage({ params }: { params: Params }) 
   const athleteResult = await supabase
     .from('athletes')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('club_id', coach.club_id)
     .single();
   const athlete = athleteResult.data as any;
@@ -96,6 +99,37 @@ export default async function AthleteDetailPage({ params }: { params: Params }) 
   const activeGoals = goals?.filter((g) => g.status === 'active') || [];
   const completedGoals = goals?.filter((g) => g.status === 'completed') || [];
 
+  // Get training assignments
+  const { data: assignmentsData } = await supabase
+    .from('training_assignments')
+    .select(`
+      *,
+      coaches (
+        first_name,
+        last_name
+      )
+    `)
+    .eq('athlete_id', athlete.id)
+    .order('created_at', { ascending: false });
+
+  const assignments = (assignmentsData || []) as Array<{
+    id: string;
+    title: string;
+    status: string;
+    [key: string]: unknown;
+  }>;
+
+  const activeAssignments = assignments.filter(a => 
+    ['pending', 'in_progress', 'submitted'].includes(a.status)
+  );
+
+  // Get membership application
+  const { data: application } = await supabase
+    .from('membership_applications')
+    .select('*')
+    .eq('user_id', athlete.user_id)
+    .maybeSingle();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -117,6 +151,14 @@ export default async function AthleteDetailPage({ params }: { params: Params }) 
               )}
             </div>
             <div className="flex gap-2">
+              <ViewApplicationDialog 
+                application={application}
+                athleteName={`${athlete.first_name} ${athlete.last_name}`}
+              />
+              <CreateAssignmentDialog 
+                athleteId={athlete.id}
+                athleteName={`${athlete.first_name} ${athlete.last_name}`}
+              />
               <CreateProgressReportDialog
                 athleteId={athlete.id}
                 athleteName={`${athlete.first_name} ${athlete.last_name}`}
@@ -174,7 +216,7 @@ export default async function AthleteDetailPage({ params }: { params: Params }) 
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <div className="bg-white rounded-xl p-4 text-center">
             <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-black flex items-center justify-center">
               <Calendar className="h-5 w-5 text-white" />
@@ -196,6 +238,28 @@ export default async function AthleteDetailPage({ params }: { params: Params }) 
             <p className="text-2xl font-bold text-black">{activeGoals.length}</p>
             <p className="text-xs text-gray-500">เป้าหมาย</p>
           </div>
+          <div className="bg-white rounded-xl p-4 text-center">
+            <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-600 flex items-center justify-center">
+              <ClipboardList className="h-5 w-5 text-white" />
+            </div>
+            <p className="text-2xl font-bold text-black">{activeAssignments.length}</p>
+            <p className="text-xs text-gray-500">งานมอบหมาย</p>
+          </div>
+        </div>
+
+        {/* Training Assignments Section */}
+        <div className="bg-white rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-black flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-blue-600" />
+              งานมอบหมายการฝึก
+            </h3>
+            <CreateAssignmentDialog 
+              athleteId={athlete.id}
+              athleteName={`${athlete.first_name} ${athlete.last_name}`}
+            />
+          </div>
+          <AthleteAssignmentsList assignments={assignments as any} />
         </div>
 
         {/* Goals Section */}
